@@ -58,10 +58,9 @@ Thumbs.db
 backend/uploads/
 backend/temp/
 
-# Ollama / model weights
+# Ollama / model weights (large binary files only)
 *.gguf
 *.bin
-models/
 
 # Docker
 .docker/
