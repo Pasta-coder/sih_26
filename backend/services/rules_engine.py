@@ -1,0 +1,145 @@
+"""
+Deterministic Rules Engine
+───────────────────────────
+The ONLY component that makes compliance decisions.
+The recommendation engine NEVER makes decisions — it only narrates them.
+
+Per-check verdict: Pass | Fail | Pending | Manual-Review | Not-Applicable
+"""
+from rapidfuzz import fuzz
+from models.compliance import CheckStatus
+
+
+# Name-match threshold: 80% similarity covers common abbreviations
+# (e.g. "Reliance Industries Ltd" vs "RELIANCE INDUSTRIES LIMITED")
+NAME_MATCH_THRESHOLD = 80
+
+
+def _name_match(name_a: str, name_b: str) -> bool:
+    if not name_a or not name_b:
+        return False
+    score = fuzz.token_sort_ratio(name_a.upper().strip(), name_b.upper().strip())
+    return score >= NAME_MATCH_THRESHOLD
+
+
+def rule_gst(gst_result: dict, bidder_name: str) -> dict:
+    """
+    GST check rules:
+    - FAIL if status is not 'Active'
+    - FAIL if registered name doesn't fuzzy-match bidder name
+    - FAIL if >2 of last 6 GSTR-3B returns are missing
+    """
+    if "error" in gst_result and gst_result.get("status") == "Not Found":
+        return {"status": CheckStatus.fail, "detail": "GSTIN not found in GST registry."}
+
+    if gst_result.get("status", "").lower() != "active":
+        return {
+            "status": CheckStatus.fail,
+            "detail": f"GST registration is {gst_result.get('status', 'Unknown')}. "
+                      f"Active status required for participation.",
+        }
+
+    # Name match
+    registered_name = gst_result.get("legal_name", "")
+    if not _name_match(registered_name, bidder_name):
+        return {
+            "status": CheckStatus.fail,
+            "detail": f"GST registered name '{registered_name}' does not match "
+                      f"bidder name '{bidder_name}' (fuzzy similarity < {NAME_MATCH_THRESHOLD}%).",
+        }
+
+    # Filing status
+    filing = gst_result.get("filing_status", {})
+    missing = filing.get("missing", 0)
+    if missing > 2:
+        return {
+            "status": CheckStatus.fail,
+            "detail": f"{missing} of last 6 GSTR-3B returns are missing. Maximum 2 missing returns allowed.",
+        }
+
+    return {"status": CheckStatus.pass_, "detail": f"GST Active. Returns: {6 - missing}/6 filed."}
+
+
+def rule_pan(pan_result: dict, bidder_name: str) -> dict:
+    """PAN must be Valid and name must fuzzy-match."""
+    if pan_result.get("status", "").lower() not in ("valid",):
+        return {
+            "status": CheckStatus.fail,
+            "detail": f"PAN status: {pan_result.get('status', 'Unknown')}. Valid PAN required.",
+        }
+
+    registered_name = pan_result.get("name", "")
+    if not _name_match(registered_name, bidder_name):
+        return {
+            "status": CheckStatus.fail,
+            "detail": f"PAN registered name '{registered_name}' does not match bidder name '{bidder_name}'.",
+        }
+
+    return {"status": CheckStatus.pass_, "detail": f"PAN Valid. Name verified."}
+
+
+def rule_epfo(epfo_result: dict, epfo_required: bool = True) -> dict:
+    """EPFO required for establishments with >20 employees (tender-rule-toggled)."""
+    if not epfo_required:
+        return {"status": CheckStatus.not_applicable, "detail": "EPFO check not required for this tender."}
+
+    if epfo_result.get("status") == "not_provided":
+        return {"status": CheckStatus.fail, "detail": "EPFO code not provided. Required for this tender."}
+
+    if epfo_result.get("status", "").lower() not in ("active",):
+        return {
+            "status": CheckStatus.fail,
+            "detail": f"EPFO registration status: {epfo_result.get('status', 'Unknown')}.",
+        }
+
+    return {"status": CheckStatus.pass_, "detail": "EPFO registration Active."}
+
+
+def rule_mca(mca_result: dict) -> dict:
+    """Company must be Active in MCA21."""
+    status = mca_result.get("status", "")
+
+    if "error" in mca_result and status == "Not Found":
+        return {"status": CheckStatus.fail, "detail": "Company not found in MCA21 registry."}
+
+    if status.lower() not in ("active",):
+        return {
+            "status": CheckStatus.fail,
+            "detail": f"Company status in MCA21: '{status}'. Active status required.",
+        }
+
+    return {"status": CheckStatus.pass_, "detail": f"Company Active in MCA21 since {mca_result.get('incorporation_date', 'N/A')}."}
+
+
+def rule_blacklist(blacklist_result: dict) -> dict:
+    """Blacklisting is an automatic disqualifier — overrides all other checks."""
+    if blacklist_result.get("blacklisted"):
+        match = blacklist_result["match"]
+        return {
+            "status": CheckStatus.fail,
+            "detail": (
+                f"CRITICAL: Entity found on CVC/GeM debarred vendor list. "
+                f"Debarred by: {match.get('debarred_by')}. "
+                f"Reason: {match.get('debarment_reason')}. "
+                f"Debarment period: {match.get('debarment_date')} to {match.get('debarment_end_date')}."
+            ),
+            "is_blacklisted": True,
+        }
+    return {"status": CheckStatus.pass_, "detail": "No match found on debarred vendor lists."}
+
+
+def rule_tier2(check_name: str, officer_result: str | None) -> dict:
+    """Tier 2 checks are Pending until officer records a result."""
+    if not officer_result:
+        return {
+            "status": CheckStatus.manual_review,
+            "detail": f"Awaiting Procurement Officer manual verification on official portal.",
+        }
+    if officer_result.lower() == "verified":
+        return {"status": CheckStatus.pass_, "detail": "Manually verified by Procurement Officer."}
+    if officer_result.lower() == "failed":
+        return {"status": CheckStatus.fail, "detail": "Procurement Officer recorded: FAILED on official portal."}
+    return {
+        "status": CheckStatus.fail,
+        "detail": f"Procurement Officer recorded discrepancy: {officer_result}",
+    }
