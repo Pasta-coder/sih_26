@@ -1,84 +1,170 @@
-# AI-Powered Integrated Bid Compliance Verification Platform
-## SIH 2026 — Problem Statement 26100
-### Ministry of Petroleum & Natural Gas — CPCL
+# 🛡️ GeM Bid Compliance Verification Platform
+
+**SIH 2026 — Problem Statement 26100**  
+Ministry of Petroleum & Natural Gas (MoPNG) / CPCL
+
+> AI-powered, data-sovereign compliance verification for government procurement bids on the GeM portal.
 
 ---
 
-## Overview
-An AI-powered platform for GeM procurement bid compliance verification, built for Procurement Officers to automate, audit, and recommend actions across multi-source compliance checks using a transparent three-tier integration architecture.
+## 🏗️ Architecture
 
-## Architecture
+```
+┌─────────────────────────────────────────────────────────┐
+│              3-Tier Compliance Engine                    │
+├──────────────┬──────────────────┬───────────────────────┤
+│    Tier 1    │     Tier 2       │       Tier 3          │
+│  Automated   │  Manual Redirect │      Mocked           │
+├──────────────┼──────────────────┼───────────────────────┤
+│ GST (GSTN)  │ Udyam (MSME)    │ DigiLocker            │
+│ PAN (IT Dept)│ BIS (QCI)       │ NSIC                  │
+│ EPFO (UAN)  │ Startup India   │ OEM Authorization     │
+│ MCA21 (ROC) │ DPIIT            │ Blacklist / CVC       │
+└──────────────┴──────────────────┴───────────────────────┘
+        ↓ Rules Engine (deterministic, PRD §6)
+        ↓ Scoring Engine (weighted, 0-100)
+        ↓ Recommendation Engine (Python template, Option B)
+        ↓ Immutable Audit Trail (SQLite, append-only)
+```
 
-| Tier | Sources | Method |
-|------|---------|--------|
-| **Tier 1** | GST, EPFO/ESIC, MCA21, PAN | Real reseller REST APIs (sandbox) |
-| **Tier 2** | Udyam, BIS, Startup India | Deep-link to official portal + officer manual input |
-| **Tier 3** | DigiLocker, NSIC, OEM Auth, Blacklist | Seeded mock services |
+## 🚀 Quick Start
 
-## Tech Stack
-- **Frontend:** React (Vite) + Tailwind CSS
-- **Backend:** Python FastAPI
-- **Database:** SQLite (demo) / PostgreSQL-ready
-- **OCR:** Tesseract + EasyOCR fallback
-- **AI Extraction:** NuExtract-based field extraction pipeline
-- **Recommendations:** Deterministic Python template engine (data-sovereign, no external LLM)
-- **Auth:** JWT (Officer + Admin roles)
-- **Deployment:** Docker Compose
+### Backend (FastAPI)
 
-## Quick Start
-
-### Prerequisites
-- Python 3.11+
-- Node 18+
-- Tesseract OCR (`brew install tesseract`)
-
-### Backend
 ```bash
 cd backend
-python -m venv venv
-source venv/bin/activate
+python3 -m venv venv
+source venv/bin/activate        # macOS/Linux
+# .\venv\Scripts\activate       # Windows
+
 pip install -r requirements.txt
-cp ../.env.example .env   # fill in values
+python3 seed.py                  # Create demo users + 25 synthetic bidders
 uvicorn main:app --reload --port 8000
 ```
 
-### Frontend
+Backend API: http://localhost:8000  
+Swagger Docs: http://localhost:8000/docs
+
+### Frontend (React + Vite)
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-### Mock Services (Tier 3)
-```bash
-cd mock_services
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8001
+Frontend: http://localhost:5173
+
+### Demo Credentials
+
+| Role    | Email                    | Password      |
+|---------|--------------------------|---------------|
+| Admin   | `admin@cpcl.gov.in`      | `Admin@1234`  |
+| Officer | `officer@cpcl.gov.in`    | `Officer@1234`|
+
+---
+
+## ⚡ Wow Moment — Live Re-Verification
+
+1. Login as **Admin** → go to **Admin Panel**
+2. Select the demo tender → toggle **EPFO Required = OFF**
+3. Navigate to any bidder without EPFO → click **Run Verification**
+4. Toggle **EPFO Required = ON** → re-run → watch score drop
+
+This demonstrates the system's real-time re-scoring without any manual data entry.
+
+---
+
+## 📂 Project Structure
+
+```
+sih_26/
+├── backend/
+│   ├── main.py                  # FastAPI app
+│   ├── database.py              # SQLite + SQLAlchemy
+│   ├── auth_utils.py            # JWT + bcrypt
+│   ├── config.py                # Settings via pydantic-settings
+│   ├── seed.py                  # Database seeder
+│   ├── models/                  # ORM models
+│   ├── schemas/                 # Pydantic schemas
+│   ├── routers/                 # API routes
+│   │   ├── auth.py              # Login / register / me
+│   │   ├── tenders.py           # Tender CRUD
+│   │   ├── bidders.py           # Bidder CRUD + CSV upload
+│   │   ├── compliance.py        # Full compliance run + overrides
+│   │   ├── documents.py         # Document upload + OCR
+│   │   ├── audit.py             # Audit trail + PDF export
+│   │   └── admin.py             # Rule toggle management
+│   └── services/
+│       ├── tier1/               # GST, PAN, EPFO, MCA21 adapters
+│       ├── tier2/               # Udyam, BIS deep-link generators
+│       ├── tier3/               # Blacklist, NSIC, DigiLocker, OEM
+│       ├── rules_engine.py      # Deterministic compliance rules
+│       ├── scoring.py           # Weighted score + risk banding
+│       ├── recommendation.py    # Python template engine (Option B)
+│       ├── ocr.py               # Tesseract → EasyOCR pipeline
+│       ├── extraction.py        # Field extraction (grounded)
+│       ├── audit_log.py         # Immutable audit trail
+│       └── pdf_export.py        # ReportLab PDF generator
+├── frontend/
+│   └── src/
+│       ├── pages/               # Login, Dashboard, TenderDetail, BidderDetail, AuditLog, AdminPanel
+│       ├── components/          # Layout with sidebar
+│       ├── context/             # AuthContext (JWT)
+│       └── api/                 # Axios client
+├── docker-compose.yml
+└── PRD.md
 ```
 
-### Docker (all services)
-```bash
-docker-compose up --build
-```
+---
 
-## Features
-- Bulk bidder upload (CSV or manual)
-- Per-bidder automated compliance runs across all tiers
-- Deterministic rules engine → weighted compliance score → risk band (Low / Medium / High / Critical)
-- AI-generated natural-language recommendations via Python template engine
-- Tier 2 deep-link panel with officer manual verification recording
-- Officer override with mandatory reason (fully logged)
-- Immutable audit trail (every query, extract, verdict, override — timestamped)
-- PDF export of audit trail per bidder
-- Admin panel: mock service toggles, tender-specific rule toggles, full audit logs
+## 🎯 Compliance Engine — Design Decisions
 
-## Compliance Scoring
-| Score | Risk Level |
-|-------|-----------|
-| 90–100 | 🟢 Low |
-| 70–89 | 🟡 Medium |
-| 40–69 | 🔴 High |
-| <40 or blacklisted | ⛔ Critical |
+### Why Option B (Template Engine) over LLM?
 
-## License
-Built for SIH 2026. Academic/demo use.
+For a **compliance/legal tool**, consistency and auditability are mandatory:
+
+| Concern | LLM | Template Engine |
+|---------|-----|-----------------|
+| Same input → same output | ❌ Non-deterministic | ✅ Guaranteed |
+| Data sovereignty | ❌ PAN/GST leaves server | ✅ Zero egress |
+| Auditability | ❌ Hard to audit | ✅ Sentence-level traceability |
+| Offline operation | ❌ Requires API | ✅ Fully offline |
+| Latency | ❌ 1–10s per call | ✅ <1ms |
+
+### Why `bcrypt` directly (not passlib)?
+
+Python 3.14 + bcrypt 5.x + passlib 1.7.4 has a known compatibility issue. We use `bcrypt` directly for correctness.
+
+---
+
+## 📋 API Reference
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/auth/login` | POST | Login, returns JWT |
+| `/api/auth/me` | GET | Current user |
+| `/api/tenders/` | GET/POST | List / create tenders |
+| `/api/tenders/{id}/bidders` | GET/POST | List / add bidders |
+| `/api/compliance/run/{bidder_id}` | POST | Full compliance run |
+| `/api/compliance/run-all/{tender_id}` | POST | Run all bidders |
+| `/api/compliance/tier2-verify/{id}` | POST | Officer manual verify |
+| `/api/compliance/override/{id}` | POST | Officer override |
+| `/api/audit/bidder/{id}` | GET | Bidder audit trail |
+| `/api/audit/bidder/{id}/export-pdf` | GET | Download PDF report |
+| `/api/documents/upload/{id}` | POST | Upload + OCR document |
+| `/api/admin/mock-toggle/{id}` | PATCH | Update rule toggles |
+
+---
+
+## 🔒 Security & Data Sovereignty
+
+- **Zero external API calls** in production by default (`USE_REAL_TIER1_APIS=false`)
+- **Bidder PAN/GST/financial data never leaves the server**
+- **JWT authentication** with role-based access (Officer / Admin)
+- **Immutable audit trail** — every action logged with actor, timestamp, payload
+- **Officer overrides require mandatory written justification**, always logged
+
+---
+
+*Built for SIH 2026 — Problem Statement 26100 | CPCL · Ministry of Petroleum & Natural Gas*
