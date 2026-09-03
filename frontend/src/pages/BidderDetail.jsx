@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api from '../api/client'
-import { Play, RefreshCw, ExternalLink, AlertTriangle, CheckCircle, XCircle, Clock, Edit2, Shield } from 'lucide-react'
+import { Play, RefreshCw, ExternalLink, Edit2, Shield, Download } from 'lucide-react'
 
 const RISK_CLASS = { Low: 'risk-low', Medium: 'risk-medium', High: 'risk-high', Critical: 'risk-critical' }
 const STATUS_INFO = {
@@ -70,9 +70,19 @@ export default function BidderDetail() {
             <h1 className="page-title">{data.company_name}</h1>
             <p className="page-subtitle">Bidder Compliance Detail View</p>
           </div>
-          <button id="run-compliance-btn" className="btn btn-primary" onClick={runCompliance} disabled={running}>
-            {running ? <><RefreshCw size={14} style={{ animation: 'spin 0.7s linear infinite' }} /> Verifying...</> : <><Play size={14} /> Run Verification</>}
-          </button>
+          <div className="flex gap-3">
+            <a
+              href={`/api/audit/bidder/${id}/export-pdf`}
+              target="_blank" rel="noreferrer"
+              className="btn btn-secondary"
+              title="Download PDF Audit Report"
+            >
+              <Download size={14} /> Export PDF
+            </a>
+            <button id="run-compliance-btn" className="btn btn-primary" onClick={runCompliance} disabled={running}>
+              {running ? <><RefreshCw size={14} style={{ animation: 'spin 0.7s linear infinite' }} /> Verifying...</> : <><Play size={14} /> Run Verification</>}
+            </button>
+          </div>
         </div>
       </div>
 
