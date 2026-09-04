@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
 import api from '../api/client'
 import { ScrollText } from 'lucide-react'
 
@@ -8,6 +7,7 @@ const EVENT_COLORS = {
   tier2_manual_verify: '#f59e0b',
   tier3_mock_query: '#6366f1',
   document_upload: '#8b5cf6',
+  document_extraction: '#a855f7',  // F5
   rules_verdict: '#3b82f6',
   recommendation_generated: '#ec4899',
   officer_override: '#ef4444',
@@ -19,10 +19,15 @@ const EVENT_COLORS = {
 export default function AuditLog() {
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [filter, setFilter] = useState('all')
 
+  // F1: surface load failures instead of silently rendering an empty state.
   useEffect(() => {
-    api.get('/audit/all').then(r => setEntries(r.data)).finally(() => setLoading(false))
+    api.get('/audit/all')
+      .then(r => setEntries(r.data))
+      .catch(() => setError('Could not load the audit log. This view is restricted to administrators.'))
+      .finally(() => setLoading(false))
   }, [])
 
   const filtered = filter === 'all' ? entries : entries.filter(e => e.event_type === filter)
@@ -49,6 +54,11 @@ export default function AuditLog() {
         <div className="card">
           {loading ? (
             <div className="loading-center"><div className="spinner" /></div>
+          ) : error ? (
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--danger)' }}>
+              <ScrollText size={40} style={{ color: 'var(--danger)', margin: '0 auto 12px', display: 'block', opacity: 0.6 }} />
+              <p>{error}</p>
+            </div>
           ) : filtered.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 40 }}>
               <ScrollText size={40} style={{ color: 'var(--text-muted)', margin: '0 auto 12px', display: 'block' }} />
