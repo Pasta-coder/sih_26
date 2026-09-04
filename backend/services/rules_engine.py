@@ -28,7 +28,16 @@ def rule_gst(gst_result: dict, bidder_name: str) -> dict:
     - FAIL if status is not 'Active'
     - FAIL if registered name doesn't fuzzy-match bidder name
     - FAIL if >2 of last 6 GSTR-3B returns are missing
+    - MANUAL-REVIEW (held, not failed) if the external service itself errored
     """
+    # E1: A transient adapter/registry outage is a system failure, not a bidder
+    # finding — hold the check for manual re-check instead of auto-failing.
+    if gst_result.get("status") in ("api_error", "error"):
+        return {
+            "status": CheckStatus.manual_review,
+            "detail": "External verification service unavailable. Awaiting manual/officer re-check.",
+        }
+
     if "error" in gst_result and gst_result.get("status") == "Not Found":
         return {"status": CheckStatus.fail, "detail": "GSTIN not found in GST registry."}
 
@@ -62,6 +71,13 @@ def rule_gst(gst_result: dict, bidder_name: str) -> dict:
 
 def rule_pan(pan_result: dict, bidder_name: str) -> dict:
     """PAN must be Valid and name must fuzzy-match."""
+    # E1: External-service errors are held for manual re-check, not scored as a failure.
+    if pan_result.get("status") in ("api_error", "error"):
+        return {
+            "status": CheckStatus.manual_review,
+            "detail": "External verification service unavailable. Awaiting manual/officer re-check.",
+        }
+
     if pan_result.get("status", "").lower() not in ("valid",):
         return {
             "status": CheckStatus.fail,
@@ -83,6 +99,13 @@ def rule_epfo(epfo_result: dict, epfo_required: bool = True) -> dict:
     if not epfo_required:
         return {"status": CheckStatus.not_applicable, "detail": "EPFO check not required for this tender."}
 
+    # E1: External-service errors are held for manual re-check, not scored as a failure.
+    if epfo_result.get("status") in ("api_error", "error"):
+        return {
+            "status": CheckStatus.manual_review,
+            "detail": "External verification service unavailable. Awaiting manual/officer re-check.",
+        }
+
     if epfo_result.get("status") == "not_provided":
         return {"status": CheckStatus.fail, "detail": "EPFO code not provided. Required for this tender."}
 
@@ -97,6 +120,13 @@ def rule_epfo(epfo_result: dict, epfo_required: bool = True) -> dict:
 
 def rule_mca(mca_result: dict) -> dict:
     """Company must be Active in MCA21."""
+    # E1: External-service errors are held for manual re-check, not scored as a failure.
+    if mca_result.get("status") in ("api_error", "error"):
+        return {
+            "status": CheckStatus.manual_review,
+            "detail": "External verification service unavailable. Awaiting manual/officer re-check.",
+        }
+
     status = mca_result.get("status", "")
 
     if "error" in mca_result and status == "Not Found":
