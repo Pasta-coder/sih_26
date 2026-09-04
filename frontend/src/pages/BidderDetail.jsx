@@ -10,6 +10,7 @@ const STATUS_INFO = {
   manual_review: { cls: 'check-manual', label: '⏳ Manual Review' },
   not_applicable: { cls: 'check-na', label: '➖ N/A' },
   pending: { cls: 'check-pending', label: '⏳ Pending' },
+  api_unavailable: { cls: 'check-pending', label: '⚠️ API Unavailable' },
 }
 const TIER_LABEL = { tier1: 'Tier 1 · Auto', tier2: 'Tier 2 · Manual', tier3: 'Tier 3 · Mock' }
 const TIER_CLS = { tier1: 'tier-1', tier2: 'tier-2', tier3: 'tier-3' }

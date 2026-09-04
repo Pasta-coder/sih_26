@@ -17,6 +17,7 @@ from services.tier3.nsic import verify_nsic
 from services.rules_engine import rule_gst, rule_pan, rule_epfo, rule_mca, rule_blacklist, rule_tier2
 from services.scoring import compute_score
 from services.recommendation import generate_recommendation
+from services.resilience import safe_call, is_api_failure, extract_failure_verdict
 from services import audit_log as audit_svc
 
 router = APIRouter()
@@ -60,29 +61,33 @@ async def _run_compliance_for_bidder(bidder: Bidder, tender_rules: dict, db: Ses
         )
 
     # ── Tier 1: GST ──────────────────────────────────────────────────────────
-    gst_raw = await gst.verify_gst(bidder.gstin or "")
+    gst_raw = await safe_call("gst_status", gst.verify_gst(bidder.gstin or ""), timeout_seconds=12)
     audit_svc.log_event(db, AuditEventType.tier1_query, f"GST query for {bidder.gstin}",
                         bidder.id, actor_id, {"request": bidder.gstin, "response": gst_raw})
-    await _save_check("gst_status", CheckTier.tier1, rule_gst(gst_raw, company), gst_raw)
+    gst_verdict = extract_failure_verdict(gst_raw) if is_api_failure(gst_raw) else rule_gst(gst_raw, company)
+    await _save_check("gst_status", CheckTier.tier1, gst_verdict, gst_raw)
 
     # ── Tier 1: PAN ──────────────────────────────────────────────────────────
-    pan_raw = await pan.verify_pan(bidder.pan or "")
+    pan_raw = await safe_call("pan_validity", pan.verify_pan(bidder.pan or ""), timeout_seconds=12)
     audit_svc.log_event(db, AuditEventType.tier1_query, f"PAN query for {bidder.pan}",
                         bidder.id, actor_id, {"request": bidder.pan, "response": pan_raw})
-    await _save_check("pan_validity", CheckTier.tier1, rule_pan(pan_raw, company), pan_raw)
+    pan_verdict = extract_failure_verdict(pan_raw) if is_api_failure(pan_raw) else rule_pan(pan_raw, company)
+    await _save_check("pan_validity", CheckTier.tier1, pan_verdict, pan_raw)
 
     # ── Tier 1: EPFO ─────────────────────────────────────────────────────────
     epfo_required = tender_rules.get("epfo_required", True)
-    epfo_raw = await epfo.verify_epfo(bidder.epfo_code or "")
+    epfo_raw = await safe_call("epfo_registration", epfo.verify_epfo(bidder.epfo_code or ""), timeout_seconds=12)
     audit_svc.log_event(db, AuditEventType.tier1_query, f"EPFO query for {bidder.epfo_code}",
                         bidder.id, actor_id, {"request": bidder.epfo_code, "response": epfo_raw})
-    await _save_check("epfo_registration", CheckTier.tier1, rule_epfo(epfo_raw, epfo_required), epfo_raw)
+    epfo_verdict = extract_failure_verdict(epfo_raw) if is_api_failure(epfo_raw) else rule_epfo(epfo_raw, epfo_required)
+    await _save_check("epfo_registration", CheckTier.tier1, epfo_verdict, epfo_raw)
 
     # ── Tier 1: MCA21 ────────────────────────────────────────────────────────
-    mca_raw = await mca21.verify_mca(bidder.cin or "")
+    mca_raw = await safe_call("mca_status", mca21.verify_mca(bidder.cin or ""), timeout_seconds=15)
     audit_svc.log_event(db, AuditEventType.tier1_query, f"MCA21 query for {bidder.cin}",
                         bidder.id, actor_id, {"request": bidder.cin, "response": mca_raw})
-    await _save_check("mca_status", CheckTier.tier1, rule_mca(mca_raw), mca_raw)
+    mca_verdict = extract_failure_verdict(mca_raw) if is_api_failure(mca_raw) else rule_mca(mca_raw)
+    await _save_check("mca_status", CheckTier.tier1, mca_verdict, mca_raw)
 
     # ── Tier 2: Udyam ────────────────────────────────────────────────────────
     udyam_url_info = udyam_verify_url(bidder.udyam_number or "N/A")
@@ -99,15 +104,22 @@ async def _run_compliance_for_bidder(bidder: Bidder, tender_rules: dict, db: Ses
                           portal_url=bis_url_info["url"])
 
     # ── Tier 3: Blacklist ────────────────────────────────────────────────────
-    bl_raw = check_blacklist(company, bidder.pan, bidder.gstin)
+    # Blacklist is a local DB lookup (no network) — still wrap for safety
+    try:
+        bl_raw = check_blacklist(company, bidder.pan, bidder.gstin)
+    except Exception as exc:
+        bl_raw = {"blacklisted": False, "_note": f"Blacklist check error: {exc}"}
     audit_svc.log_event(db, AuditEventType.tier3_mock_query, f"Blacklist check for {company}",
                         bidder.id, actor_id, {"response": bl_raw})
     bl_verdict = rule_blacklist(bl_raw)
     await _save_check("blacklist", CheckTier.tier3, bl_verdict, bl_raw)
 
-    # ── Tier 3: NSIC (if number provided) ────────────────────────────────────
-    if bidder.epfo_code:  # reuse as NSIC field in demo data
-        nsic_raw = verify_nsic("", company)
+    # ── Tier 3: NSIC ─────────────────────────────────────────────────────────
+    if bidder.epfo_code:
+        try:
+            nsic_raw = verify_nsic("", company)
+        except Exception as exc:
+            nsic_raw = {"error": str(exc)}
         audit_svc.log_event(db, AuditEventType.tier3_mock_query, f"NSIC check for {company}",
                             bidder.id, actor_id, {"response": nsic_raw})
 
