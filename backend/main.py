@@ -41,7 +41,10 @@ from routers import auth, tenders, bidders, compliance, documents, admin, audit
 
 app.include_router(auth.router,       prefix="/api/auth",       tags=["Auth"])
 app.include_router(tenders.router,    prefix="/api/tenders",    tags=["Tenders"])
-app.include_router(bidders.router,    prefix="/api/bidders",    tags=["Bidders"])
+# Bidders are a sub-resource of tenders; bidders.py declares /{tender_id}/bidders
+# routes, so the router must be mounted at /api/tenders to match the frontend
+# and the documented API (/api/tenders/{id}/bidders).
+app.include_router(bidders.router,    prefix="/api/tenders",    tags=["Bidders"])
 app.include_router(compliance.router, prefix="/api/compliance", tags=["Compliance"])
 app.include_router(documents.router,  prefix="/api/documents",  tags=["Documents"])
 app.include_router(admin.router,      prefix="/api/admin",      tags=["Admin"])
