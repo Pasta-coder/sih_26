@@ -107,6 +107,19 @@ def generate_bidder_pdf(
     story.append(summary_table)
     story.append(Spacer(1, 0.5 * cm))
 
+    # ── Pending manual checks callout (E5) ────────────────────────────────
+    pending_checks = [c for c in checks if c.get("status") == "manual_review"]
+    if pending_checks:
+        pending_note = ParagraphStyle(
+            "pending-note", fontSize=9, textColor=WARNING, fontName="Helvetica-Oblique",
+            spaceBefore=6, spaceAfter=10, leading=13,
+        )
+        story.append(Paragraph(
+            f"⚠️ The compliance score excludes {len(pending_checks)} pending manual check(s) — "
+            "the score updates after officer verification on the official portal.",
+            pending_note,
+        ))
+
     # ── Compliance Checks ─────────────────────────────────────────────────
     story.append(Paragraph("Compliance Check Results", h2_style))
 
