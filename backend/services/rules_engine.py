@@ -169,7 +169,14 @@ def rule_tier2(check_name: str, officer_result: str | None) -> dict:
         return {"status": CheckStatus.pass_, "detail": "Manually verified by Procurement Officer."}
     if officer_result.lower() == "failed":
         return {"status": CheckStatus.fail, "detail": "Procurement Officer recorded: FAILED on official portal."}
+    # E4: "discrepancy" is an explicit officer-recorded Fail (names/details on the
+    # statutory ID don't match the bidder record). It can be cleared only via the
+    # Override flow, which requires a written justification.
     return {
         "status": CheckStatus.fail,
-        "detail": f"Procurement Officer recorded discrepancy: {officer_result}",
+        "detail": (
+            "Procurement Officer recorded a discrepancy on the official portal — "
+            "recorded as Fail. Use Override (with written justification) to clear "
+            "if determined benign."
+        ),
     }
