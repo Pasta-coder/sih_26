@@ -32,7 +32,8 @@ export default function App() {
             <Route path="tenders" element={<TenderList />} />
             <Route path="tenders/:id" element={<TenderDetail />} />
             <Route path="bidder/:id" element={<BidderDetail />} />
-            <Route path="audit" element={<AuditLog />} />
+            {/* F1: /audit calls the admin-only endpoint — guard it like /admin */}
+            <Route path="audit" element={<AdminRoute><AuditLog /></AdminRoute>} />
             <Route path="admin" element={<AdminRoute><AdminPanel /></AdminRoute>} />
           </Route>
         </Routes>

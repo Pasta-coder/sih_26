@@ -6,8 +6,11 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      // O1: inside Docker, localhost is the frontend container itself — the
+      // proxy target must be the compose service name. Locally it defaults to
+      // the dev backend on :8000.
       '/api': {
-        target: 'http://localhost:8000',
+        target: process.env.VITE_API_PROXY_TARGET || 'http://localhost:8000',
         changeOrigin: true,
       },
     },

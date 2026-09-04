@@ -6,11 +6,12 @@ See PRD §6 for full specification.
 
 Check weights (sum = 100):
 - blacklist:       AUTOMATIC 0 override if hit
-- gst_status:      25 (mandatory statutory)
-- pan_validity:    20 (mandatory statutory)
+- gst_status:      20 (mandatory statutory)
+- pan_validity:    15 (mandatory statutory)
 - mca_status:      15 (mandatory statutory)
 - epfo_registration: 15 (conditional: tender rule toggle)
 - udyam_msme:      10 (Tier 2 manual)
+- make_in_india:   10 (Tier 3 mock, conditional: make_in_india toggle)
 - bis_license:      5 (Tier 2 manual, conditional)
 - startup_india:    5 (Tier 2 manual, conditional)
 - nsic:             5 (Tier 3 mock)
@@ -24,11 +25,12 @@ Risk bands:
 from models.compliance import CheckStatus
 
 CHECK_WEIGHTS: dict[str, float] = {
-    "gst_status": 25.0,
-    "pan_validity": 20.0,
+    "gst_status": 20.0,
+    "pan_validity": 15.0,
     "mca_status": 15.0,
     "epfo_registration": 15.0,
     "udyam_msme": 10.0,
+    "make_in_india": 10.0,
     "bis_license": 5.0,
     "startup_india_dpiit": 5.0,
     "nsic_registration": 5.0,

@@ -27,9 +27,10 @@ The system checks each bidder against multiple Indian government databases (GST,
 | OCR Pipeline | Tesseract · EasyOCR (fallback) |
 | PDF Export | ReportLab |
 | Fuzzy Matching | RapidFuzz |
-| Frontend | React 18 · Vite 5 · Vanilla CSS |
+| Frontend | React 19 · Vite 5 · Vanilla CSS |
 | HTTP Client | Axios |
-| Routing | React Router DOM v6 |
+| Routing | React Router DOM v7 |
+| Tests | pytest (backend) · oxlint (frontend) |
 
 ---
 
@@ -80,8 +81,10 @@ sih_26/
 │       ├── tier3/
 │       │   ├── blacklist.py           # CVC/GeM debarred vendor check (mocked)
 │       │   ├── nsic.py                # NSIC registration check (mocked)
+│       │   ├── local_content.py       # Make in India local-content mock
 │       │   ├── digilocker.py          # DigiLocker document check (mocked)
 │       │   └── oem.py                 # OEM authorization (document-only)
+│       ├── tests/                     # pytest suite (rules, scoring, API)
 │       ├── rules_engine.py            # Deterministic per-check verdict logic
 │       ├── scoring.py                 # Weighted 0-100 score + risk band
 │       ├── recommendation.py          # Python template engine (Option B)
@@ -316,6 +319,7 @@ curl -X POST http://localhost:8000/api/auth/login \
 |--------|----------|-------------|
 | POST | `/api/auth/login` | `{"email":"...","password":"..."}` → returns `access_token` |
 | GET | `/api/auth/me` | Returns current user info |
+| POST | `/api/auth/register` | **Admin-only.** Creates an `officer` account. Client-supplied `admin` role is rejected (403) |
 
 ### Tenders
 | Method | Endpoint | Notes |
@@ -343,8 +347,9 @@ curl -X POST http://localhost:8000/api/auth/login \
 ### Documents
 | Method | Endpoint | Notes |
 |--------|----------|-------|
-| POST | `/api/documents/upload/{bidder_id}` | Form: `doc_type` + `file`. Runs OCR + extraction |
+| POST | `/api/documents/upload/{bidder_id}` | Form: `doc_type` + `file`. Runs OCR + extraction. Enforces `MAX_UPLOAD_SIZE_MB` (413) |
 | GET | `/api/documents/{bidder_id}` | List uploaded docs and extracted fields |
+| GET | `/api/documents/consistency/{bidder_id}` | Advisory cross-check of extracted fields vs bidder record |
 
 Valid `doc_type` values: `pan_card`, `gst_certificate`, `udyam_certificate`, `epfo_certificate`, `itr_v_acknowledgment`, `oem_authorization_letter`
 
@@ -366,9 +371,9 @@ Valid `doc_type` values: `pan_card`, `gst_certificate`, `udyam_certificate`, `ep
 ## 📊 CSV Import Format
 
 ```csv
-company_name,gstin,pan,cin,udyam_number,epfo_code,email,phone,address
-Reliance Industries Ltd,27AAACR5055K1ZK,AAACR5055K,L17110MH1973PLC019786,UDYAM-MH-23-0001234,MHBAN0012345000,proc@ril.com,9100000001,"Nariman Point, Mumbai"
-No GSTIN Vendor,,AABCN5555F,,,,,9100000002,"Hyderabad, Telangana"
+company_name,gstin,pan,cin,udyam_number,epfo_code,nsic_number,email,phone,address
+Reliance Industries Ltd,27AAACR5055K1ZK,AAACR5055K,L17110MH1973PLC019786,UDYAM-MH-23-0001234,MHBAN0012345000,NSIC/MH/2021/001234,proc@ril.com,9100000001,"Nariman Point, Mumbai"
+No GSTIN Vendor,,AABCN5555F,,,,,,9100000002,"Hyderabad, Telangana"
 ```
 
 Only `company_name` is required. All other fields are optional.
@@ -386,14 +391,26 @@ Tier 1 — Fully Automated (results in seconds)
   EPFO registration       → EPFO/Deepvue API
   MCA21 company status    → Active / Struck-off / Dissolved
 
+Every known check is **always created per bidder** (M1 convention) so the
+checklist is complete; checks a tender does not require are marked Not
+Applicable and are excluded from scoring.
+
+```
+Tier 1 — Fully Automated (results in seconds)
+  GST status check        → GSTN reseller API (mock when USE_REAL_TIER1_APIS=false)
+  PAN validity            → IT Dept API + fuzzy name match
+  EPFO registration       → EPFO/Deepvue API (waived for MSME-exempt tenders with Udyam)
+  MCA21 company status    → Active / Struck-off / Dissolved
+
 Tier 2 — Officer-Assisted (deep-link redirect)
   Udyam / MSME            → Opens udyamregistration.gov.in in new tab
-  BIS License             → Opens bis.gov.in (only if tender has bis_required=true)
-  Startup India / DPIIT   → Opens startupindia.gov.in
+  BIS License             → Opens Manak Online (N/A unless bis_required=true)
+  Startup India / DPIIT   → Opens startupindia.gov.in (N/A unless claimed)
 
 Tier 3 — Mocked with realistic fixtures
-  CVC Blacklist           → Seeded debarment database (10 known bad entities)
-  NSIC                    → Seeded mock registry
+  CVC Blacklist           → Seeded debarment database (2 known bad entities)
+  NSIC                    → Seeded mock registry (N/A when no number claimed)
+  Make in India           → Local-content % vs the 50% threshold (N/A unless required)
   DigiLocker              → Document fetch simulation
   OEM Authorization       → Upload letter → OCR → field consistency check only
 ```
@@ -405,18 +422,24 @@ Tier 3 — Mocked with realistic fixtures
 - DigiLocker requires Aadhaar citizen login — not applicable for companies
 - OEM is a private B2B document, no government registry to check against
 
-### Scoring Weights
+### Scoring Weights (sum = 100)
 
 | Check | Max Points |
 |-------|-----------|
-| GST Status | 25 |
-| PAN Validity | 20 |
+| GST Status | 20 |
+| PAN Validity | 15 |
 | MCA21 Status | 15 |
 | EPFO Registration | 15 |
-| Udyam / MSME | 10 |
-| BIS License | 10 (if required) |
-| Startup India | 5 |
+| Udyam / MSME (Tier 2) | 10 |
+| Make in India Local Content | 10 |
+| BIS License | 5 (N/A unless required) |
+| Startup India / DPIIT | 5 (N/A unless claimed) |
+| NSIC Registration | 5 (N/A when not claimed) |
 | **Blacklisted** | **Score = 0, overrides all** |
+
+Checks that are Not Applicable or still pending manual review
+(`manual_review`) are excluded from both the numerator and the denominator,
+so a pending Tier-2 check never counts against a bidder.
 
 **Risk Bands:** Low (90-100) · Medium (70-89) · High (40-69) · Critical (0-39)
 
@@ -477,11 +500,11 @@ npm run dev
 
 **Port already in use**
 ```bash
-# Backend on different port
+# Backend on a different port
 uvicorn main:app --reload --port 8001
 
-# Then update frontend/vite.config.js line:
-# target: 'http://localhost:8001'
+# Point the Vite proxy at it (defaults to http://localhost:8000)
+VITE_API_PROXY_TARGET=http://localhost:8001 npm run dev
 ```
 
 **Fresh database start (wipe everything)**
@@ -512,14 +535,15 @@ App works without Tesseract — document upload just won't extract text.
 2. Click **Tenders** → `CPCL/2026/SIH-DEMO/001`
 3. Click **"Run All Compliance"** → all 25 bidders verified in ~10 seconds
 4. Show ranked table: scores, risk badges, status
-5. Click **"Blacklisted Ventures Ltd"** → Score: 0, Risk: Critical (auto-disqualified)
+5. Click **"Blacklisted Ventures Ltd"** → Score: 0, Risk: Critical (auto-disqualified; the blacklist Override button is disabled for officers)
 6. Click **"Reliance Industries Limited"** → Score: 100, Risk: Low (all green)
-7. Click **"Export PDF"** → download the audit report
-8. Click **Audit Log** in sidebar → show every event with timestamp
+7. Click **"View Audit Trail"** → per-bidder immutable event log; also click **"Export PDF"** → download the audit report
+8. Try **"Run Verification"** again after a Tier-2 manual verify → the officer's verified verdict survives (E3)
 9. Logout → Login as **Admin**
-10. Go to **Admin Panel** → toggle `EPFO Required = ON`
-11. Go back to a bidder without EPFO → **"Run Verification"** → score drops live
+10. Go to **Admin Panel** → toggle `EPFO Required = ON` (or `MSME Exemption`, `Make in India`)
+11. Go back to a bidder without EPFO → **"Run Verification"** → score drops live. Toggles persist on re-run
 12. This is the "Wow Moment" — no code change, instant re-scoring
+13. As Admin, click **Audit Log** in the sidebar (admin-only view) → show every event with timestamp
 
 ---
 

@@ -22,9 +22,6 @@ class Settings(BaseSettings):
     mca_api_key: str = ""
     mca_api_base_url: str = "https://api.authbridge.com/mca"
 
-    # Mock services
-    mock_service_url: str = "http://localhost:8001"
-
     # File uploads
     upload_dir: str = "./uploads"
     max_upload_size_mb: int = 20

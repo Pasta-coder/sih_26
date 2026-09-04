@@ -1,20 +1,32 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client'
-import { FileText, Plus, Users, CheckCircle, XCircle, Clock, ChevronRight } from 'lucide-react'
+import { FileText, Plus, Users, CheckCircle, Clock, ChevronRight } from 'lucide-react'
 
 export default function Dashboard() {
   const [tenders, setTenders] = useState([])
+  const [bidders, setBidders] = useState([])
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
 
+  // F2: stats must be derived from real data, not hardcoded.
   useEffect(() => {
-    api.get('/tenders/').then(r => setTenders(r.data)).finally(() => setLoading(false))
+    api.get('/tenders/')
+      .then(async (r) => {
+        setTenders(r.data)
+        const lists = await Promise.all(
+          r.data.map(t => api.get(`/tenders/${t.id}/bidders`).then(x => x.data).catch(() => []))
+        )
+        setBidders(lists.flat())
+      })
+      .finally(() => setLoading(false))
   }, [])
 
   const stats = {
     total: tenders.length,
     active: tenders.filter(t => t.is_active).length,
+    pending: bidders.filter(b => b.compliance_score == null).length,
+    bidders: bidders.length,
   }
 
   return (
@@ -37,11 +49,11 @@ export default function Dashboard() {
           </div>
           <div className="stat-card">
             <div className="stat-icon amber"><Clock size={20} /></div>
-            <div><div className="stat-value">3</div><div className="stat-label">Pending Verifications</div></div>
+            <div><div className="stat-value">{stats.pending}</div><div className="stat-label">Pending Verifications</div></div>
           </div>
           <div className="stat-card">
-            <div className="stat-icon purple">⚡</div>
-            <div><div className="stat-value">AI</div><div className="stat-label">Template Engine Active</div></div>
+            <div className="stat-icon purple"><Users size={20} /></div>
+            <div><div className="stat-value">{stats.bidders}</div><div className="stat-label">Total Bidders</div></div>
           </div>
         </div>
 

@@ -47,6 +47,7 @@ CHECK_LABELS = {
     "mca_status": "MCA21 Company Status",
     "epfo_registration": "EPFO Registration",
     "udyam_msme": "Udyam/MSME Registration",
+    "make_in_india": "Make in India Local Content",
     "bis_license": "BIS License",
     "startup_india_dpiit": "Startup India / DPIIT Recognition",
     "nsic_registration": "NSIC Registration",

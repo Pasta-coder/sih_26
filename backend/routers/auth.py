@@ -1,22 +1,37 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from database import get_db
-from models.user import User
+from models.user import User, UserRole
 from schemas.auth import UserCreate, UserLogin, UserOut, Token
-from auth_utils import hash_password, verify_password, create_access_token, get_current_user
+from auth_utils import hash_password, verify_password, create_access_token, get_current_user, require_admin
 
 router = APIRouter()
 
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def register(payload: UserCreate, db: Session = Depends(get_db)):
+def register(
+    payload: UserCreate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Admin-only account creation. Only the 'officer' role may be created here."""
+    # SECURITY (S1): This endpoint is gated behind require_admin, so anonymous
+    # users can no longer self-register. Additionally, the client-supplied role
+    # is validated server-side: anything other than 'officer' (e.g. 'admin') is
+    # rejected, so no caller can mint privileged accounts through the public API.
+    if payload.role != UserRole.officer:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the officer role can be created via /register. "
+                   "Admin accounts are provisioned by an administrator.",
+        )
     if db.query(User).filter(User.email == payload.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
     user = User(
         email=payload.email,
         full_name=payload.full_name,
         hashed_password=hash_password(payload.password),
-        role=payload.role,
+        role=payload.role,  # guaranteed to be UserRole.officer by the check above
     )
     db.add(user)
     db.commit()

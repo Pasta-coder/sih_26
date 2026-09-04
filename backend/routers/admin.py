@@ -33,8 +33,11 @@ def update_rule_toggles(
     tender = db.query(Tender).filter(Tender.id == tender_id).first()
     if not tender:
         return {"error": "Tender not found"}
-    current = tender.rule_toggles or {}
+    # Copy before mutating: updating the stored dict in place is invisible to
+    # SQLAlchemy's change tracking, so the toggle never reached the database.
+    current = dict(tender.rule_toggles or {})
     current.update(toggles)
     tender.rule_toggles = current
     db.commit()
+    db.refresh(tender)
     return {"message": "Toggles updated", "rule_toggles": tender.rule_toggles}

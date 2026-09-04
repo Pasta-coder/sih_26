@@ -19,7 +19,8 @@ Ministry of Petroleum & Natural Gas (MoPNG) / CPCL
 │ GST (GSTN)  │ Udyam (MSME)    │ DigiLocker            │
 │ PAN (IT Dept)│ BIS (QCI)       │ NSIC                  │
 │ EPFO (UAN)  │ Startup India   │ OEM Authorization     │
-│ MCA21 (ROC) │ DPIIT            │ Blacklist / CVC       │
+│ MCA21 (ROC) │ DPIIT            │ Make in India         │
+│             │                 │ Blacklist / CVC       │
 └──────────────┴──────────────────┴───────────────────────┘
         ↓ Rules Engine (deterministic, PRD §6)
         ↓ Scoring Engine (weighted, 0-100)
@@ -67,11 +68,13 @@ Frontend: http://localhost:5173
 ## ⚡ Wow Moment — Live Re-Verification
 
 1. Login as **Admin** → go to **Admin Panel**
-2. Select the demo tender → toggle **EPFO Required = OFF**
+2. Select the demo tender → toggle **EPFO Required = OFF** (or **MSME Exemption**, **Make in India**)
 3. Navigate to any bidder without EPFO → click **Run Verification**
 4. Toggle **EPFO Required = ON** → re-run → watch score drop
 
 This demonstrates the system's real-time re-scoring without any manual data entry.
+Toggle changes are persisted to the tender (PATCH `/api/admin/mock-toggle/{id}`)
+and take effect on the next verification run.
 
 ---
 
@@ -95,10 +98,11 @@ sih_26/
 │   │   ├── documents.py         # Document upload + OCR
 │   │   ├── audit.py             # Audit trail + PDF export
 │   │   └── admin.py             # Rule toggle management
+│   ├── tests/                   # pytest suite (rules, scoring, API)
 │   └── services/
 │       ├── tier1/               # GST, PAN, EPFO, MCA21 adapters
 │       ├── tier2/               # Udyam, BIS deep-link generators
-│       ├── tier3/               # Blacklist, NSIC, DigiLocker, OEM
+│       ├── tier3/               # Blacklist, NSIC, Make in India, DigiLocker, OEM
 │       ├── rules_engine.py      # Deterministic compliance rules
 │       ├── scoring.py           # Weighted score + risk banding
 │       ├── recommendation.py    # Python template engine (Option B)
@@ -144,6 +148,7 @@ Python 3.14 + bcrypt 5.x + passlib 1.7.4 has a known compatibility issue. We use
 |----------|--------|-------------|
 | `/api/auth/login` | POST | Login, returns JWT |
 | `/api/auth/me` | GET | Current user |
+| `/api/auth/register` | POST | Admin-only · creates officer accounts |
 | `/api/tenders/` | GET/POST | List / create tenders |
 | `/api/tenders/{id}/bidders` | GET/POST | List / add bidders |
 | `/api/compliance/run/{bidder_id}` | POST | Full compliance run |
@@ -152,7 +157,9 @@ Python 3.14 + bcrypt 5.x + passlib 1.7.4 has a known compatibility issue. We use
 | `/api/compliance/override/{id}` | POST | Officer override |
 | `/api/audit/bidder/{id}` | GET | Bidder audit trail |
 | `/api/audit/bidder/{id}/export-pdf` | GET | Download PDF report |
-| `/api/documents/upload/{id}` | POST | Upload + OCR document |
+| `/api/documents/upload/{id}` | POST | Upload + OCR document (size-limited) |
+| `/api/documents/consistency/{id}` | GET | Advisory doc-vs-record cross-check |
+| `/api/audit/all` | GET | Full system audit log (**admin only**) |
 | `/api/admin/mock-toggle/{id}` | PATCH | Update rule toggles |
 
 ---
@@ -164,6 +171,7 @@ Python 3.14 + bcrypt 5.x + passlib 1.7.4 has a known compatibility issue. We use
 - **JWT authentication** with role-based access (Officer / Admin)
 - **Immutable audit trail** — every action logged with actor, timestamp, payload
 - **Officer overrides require mandatory written justification**, always logged
+- **Blacklist verdicts (the hard auto-disqualifier) can only be overridden by admins**
 
 ---
 

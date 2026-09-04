@@ -8,6 +8,8 @@ services:
     volumes:
       - ./backend:/app
       - uploads:/app/uploads
+      # O2: named volume so SQLite survives down/up and never lands on the host
+      - dbdata:/app/data
     environment:
       - DATABASE_URL=sqlite:////app/data/compliance.db
       - USE_REAL_TIER1_APIS=false
@@ -19,7 +21,11 @@ services:
       - "5173:5173"
     depends_on:
       - backend
+    # O1: point the Vite dev proxy at the backend container, not localhost
+    environment:
+      - VITE_API_PROXY_TARGET=http://backend:8000
     command: npm run dev -- --host
 
 volumes:
   uploads:
+  dbdata:

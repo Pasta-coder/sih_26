@@ -431,7 +431,23 @@ label { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-s
   margin-top: 20px;
 }
 .recommendation-box h4 { font-size: 13px; font-weight: 700; color: var(--accent-light); margin-bottom: 12px; }
-.recommendation-box p, .recommendation-box li { font-size: 13.5px; color: var(--text-secondary); line-height: 1.7; }
+
+/* F4: react-markdown output inside the recommendation box */
+.recommendation-markdown { font-size: 13.5px; color: var(--text-secondary); line-height: 1.7; }
+.recommendation-markdown p { margin-bottom: 8px; }
+.recommendation-markdown h3,
+.recommendation-markdown h4 { font-size: 14px; font-weight: 700; color: var(--text-primary); margin: 16px 0 8px; }
+.recommendation-markdown ul { list-style: none; margin: 6px 0 12px; }
+.recommendation-markdown li { margin-bottom: 6px; padding-left: 2px; }
+.recommendation-markdown blockquote {
+  border-left: 3px solid var(--danger);
+  background: var(--danger-bg);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 10px 14px;
+  margin: 10px 0;
+}
+.recommendation-markdown blockquote p { margin: 0; color: var(--danger); font-weight: 500; }
+.recommendation-markdown hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 
 /* ── Audit Trail ─────────────────────────────────────────────────────────── */
 .audit-entry {

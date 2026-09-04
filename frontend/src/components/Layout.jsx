@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { LayoutDashboard, FileText, Users, ScrollText, Settings, LogOut, Shield } from 'lucide-react'
+import { LayoutDashboard, FileText, ScrollText, Settings, LogOut } from 'lucide-react'
 
 export default function Layout() {
   const { user, logout } = useAuth()
@@ -11,7 +11,9 @@ export default function Layout() {
   const navItems = [
     { to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
     { to: '/tenders', icon: FileText, label: 'Tenders' },
-    { to: '/audit', icon: ScrollText, label: 'Audit Log' },
+    // F1: Audit Log hits the admin-only /audit/all endpoint — officers use the
+    // per-bidder audit trail from the bidder detail page instead.
+    ...(user?.role === 'admin' ? [{ to: '/audit', icon: ScrollText, label: 'Audit Log' }] : []),
     ...(user?.role === 'admin' ? [{ to: '/admin', icon: Settings, label: 'Admin Panel' }] : []),
   ]
 
