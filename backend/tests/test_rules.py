@@ -36,9 +36,11 @@ class TestRuleGst:
         raw = {"status": "Active", "legal_name": BIDDER, "filing_status": {"missing": 4}}
         assert rule_gst(raw, BIDDER)["status"] == CheckStatus.fail
 
-    def test_blank_identifier_is_fail(self):
+    def test_blank_identifier_is_fail_with_clear_detail(self):
         raw = {"error": "GSTIN not provided", "status": "fail"}
-        assert rule_gst(raw, BIDDER)["status"] == CheckStatus.fail
+        verdict = rule_gst(raw, BIDDER)
+        assert verdict["status"] == CheckStatus.fail
+        assert "not provided on bidder record" in verdict["detail"]
 
     @pytest.mark.parametrize("status", ["api_error", "error"])
     def test_adapter_error_holds_for_manual_review(self, status):
@@ -60,9 +62,11 @@ class TestRulePan:
         raw = {"status": "Not Found", "error": "PAN not in registry"}
         assert rule_pan(raw, BIDDER)["status"] == CheckStatus.fail
 
-    def test_blank_identifier_is_fail(self):
+    def test_blank_identifier_is_fail_with_clear_detail(self):
         raw = {"error": "PAN not provided", "status": "fail"}
-        assert rule_pan(raw, BIDDER)["status"] == CheckStatus.fail
+        verdict = rule_pan(raw, BIDDER)
+        assert verdict["status"] == CheckStatus.fail
+        assert "not provided on bidder record" in verdict["detail"]
 
     @pytest.mark.parametrize("status", ["api_error", "error"])
     def test_adapter_error_holds_for_manual_review(self, status):
@@ -79,9 +83,11 @@ class TestRuleEpfo:
     def test_not_required_is_not_applicable(self):
         assert rule_epfo({"status": "Active"}, False)["status"] == CheckStatus.not_applicable
 
-    def test_not_provided_is_fail(self):
+    def test_not_provided_is_fail_with_clear_detail(self):
         raw = {"error": "EPFO code not provided", "status": "not_provided"}
-        assert rule_epfo(raw, True)["status"] == CheckStatus.fail
+        verdict = rule_epfo(raw, True)
+        assert verdict["status"] == CheckStatus.fail
+        assert "not provided on bidder record" in verdict["detail"]
 
     def test_not_found_is_fail(self):
         raw = {"status": "Not Found", "error": "Establishment not registered"}
@@ -107,9 +113,11 @@ class TestRuleMca:
         raw = {"status": "Not Found", "error": "Company not found in MCA21"}
         assert rule_mca(raw)["status"] == CheckStatus.fail
 
-    def test_blank_identifier_is_fail(self):
+    def test_blank_identifier_is_fail_with_clear_detail(self):
         raw = {"error": "CIN not provided", "status": "not_provided"}
-        assert rule_mca(raw)["status"] == CheckStatus.fail
+        verdict = rule_mca(raw)
+        assert verdict["status"] == CheckStatus.fail
+        assert "not provided on bidder record" in verdict["detail"]
 
     @pytest.mark.parametrize("status", ["api_error", "error"])
     def test_adapter_error_holds_for_manual_review(self, status):

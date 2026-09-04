@@ -41,6 +41,13 @@ def rule_gst(gst_result: dict, bidder_name: str) -> dict:
     if "error" in gst_result and gst_result.get("status") == "Not Found":
         return {"status": CheckStatus.fail, "detail": "GSTIN not found in GST registry."}
 
+    # E2: distinguish "bidder never provided the number" from "registry says bad"
+    if gst_result.get("status") == "fail" and "not provided" in (gst_result.get("error") or ""):
+        return {
+            "status": CheckStatus.fail,
+            "detail": "GSTIN not provided on bidder record — required for this tender.",
+        }
+
     if gst_result.get("status", "").lower() != "active":
         return {
             "status": CheckStatus.fail,
@@ -78,6 +85,13 @@ def rule_pan(pan_result: dict, bidder_name: str) -> dict:
             "detail": "External verification service unavailable. Awaiting manual/officer re-check.",
         }
 
+    # E2: distinguish "bidder never provided the number" from "registry says bad"
+    if pan_result.get("status") == "fail" and "not provided" in (pan_result.get("error") or ""):
+        return {
+            "status": CheckStatus.fail,
+            "detail": "PAN not provided on bidder record — required for this tender.",
+        }
+
     if pan_result.get("status", "").lower() not in ("valid",):
         return {
             "status": CheckStatus.fail,
@@ -107,7 +121,10 @@ def rule_epfo(epfo_result: dict, epfo_required: bool = True) -> dict:
         }
 
     if epfo_result.get("status") == "not_provided":
-        return {"status": CheckStatus.fail, "detail": "EPFO code not provided. Required for this tender."}
+        return {
+            "status": CheckStatus.fail,
+            "detail": "EPFO code not provided on bidder record — required for this tender.",
+        }
 
     if epfo_result.get("status", "").lower() not in ("active",):
         return {
@@ -131,6 +148,13 @@ def rule_mca(mca_result: dict) -> dict:
 
     if "error" in mca_result and status == "Not Found":
         return {"status": CheckStatus.fail, "detail": "Company not found in MCA21 registry."}
+
+    # E2: distinguish "bidder never provided the number" from "registry says bad"
+    if status == "not_provided":
+        return {
+            "status": CheckStatus.fail,
+            "detail": "CIN not provided on bidder record — required for this tender.",
+        }
 
     if status.lower() not in ("active",):
         return {
