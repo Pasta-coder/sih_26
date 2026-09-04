@@ -14,7 +14,11 @@ from services.tier1 import gst, pan, epfo, mca21
 from services.tier2.portals import udyam_verify_url, bis_verify_url, startup_india_verify_url
 from services.tier3.blacklist import check_blacklist
 from services.tier3.nsic import verify_nsic
-from services.rules_engine import rule_gst, rule_pan, rule_epfo, rule_mca, rule_blacklist, rule_tier2
+from services.tier3.local_content import verify_local_content
+from services.rules_engine import (
+    rule_gst, rule_pan, rule_epfo, rule_mca,
+    rule_blacklist, rule_tier2, rule_nsic, rule_make_in_india,
+)
 from services.scoring import compute_score
 from services.recommendation import generate_recommendation
 from services import audit_log as audit_svc
@@ -125,11 +129,28 @@ async def _run_compliance_for_bidder(bidder: Bidder, tender_rules: dict, db: Ses
         portal_url=udyam_url_info["url"]
     )
 
-    # ── Tier 2: BIS (conditional on tender toggle) ───────────────────────────
+    # ── Tier 2: Startup India / DPIIT (always created; N/A unless claimed) ────
+    # (M1) Every known check is created per bidder so the dashboard is a complete
+    # checklist. Non-applicable checks are excluded from scoring and shown as N/A.
+    if tender_rules.get("startup_india_eligible", False):
+        si_url_info = startup_india_verify_url("")
+        await _save_check("startup_india_dpiit", CheckTier.tier2,
+                          rule_tier2("startup_india_dpiit", None),
+                          portal_url=si_url_info["url"])
+    else:
+        await _save_check("startup_india_dpiit", CheckTier.tier2,
+                          {"status": CheckStatus.not_applicable,
+                           "detail": "Startup India/DPIIT recognition not claimed/required for this tender."})
+
+    # ── Tier 2: BIS (always created; N/A when toggle off) ────────────────────
     if tender_rules.get("bis_required", False):
         bis_url_info = bis_verify_url("")
         await _save_check("bis_license", CheckTier.tier2, rule_tier2("bis_license", None),
                           portal_url=bis_url_info["url"])
+    else:
+        await _save_check("bis_license", CheckTier.tier2,
+                          {"status": CheckStatus.not_applicable,
+                           "detail": "BIS license not required for this tender."})
 
     # ── Tier 3: Blacklist ────────────────────────────────────────────────────
     bl_raw = check_blacklist(company, bidder.pan, bidder.gstin)
@@ -138,11 +159,25 @@ async def _run_compliance_for_bidder(bidder: Bidder, tender_rules: dict, db: Ses
     bl_verdict = rule_blacklist(bl_raw)
     await _save_check("blacklist", CheckTier.tier3, bl_verdict, bl_raw)
 
-    # ── Tier 3: NSIC (if number provided) ────────────────────────────────────
-    if bidder.epfo_code:  # reuse as NSIC field in demo data
-        nsic_raw = verify_nsic("", company)
-        audit_svc.log_event(db, AuditEventType.tier3_mock_query, f"NSIC check for {company}",
-                            bidder.id, actor_id, {"response": nsic_raw})
+    # ── Tier 3: NSIC (always created) ────────────────────────────────────────
+    # (M2) Previously dead code: verify_nsic was called with an empty number and
+    # the result was never saved as a ComplianceCheck. Now bidders with an NSIC
+    # number get a scored verdict; bidders without one get N/A.
+    nsic_raw = verify_nsic(bidder.nsic_number or "", company)
+    audit_svc.log_event(db, AuditEventType.tier3_mock_query, f"NSIC check for {company}",
+                        bidder.id, actor_id, {"request": bidder.nsic_number, "response": nsic_raw})
+    await _save_check("nsic_registration", CheckTier.tier3, rule_nsic(nsic_raw), nsic_raw)
+
+    # ── Tier 3: Make in India local content (always created) ─────────────────
+    # (M4) PS item #5: enforce the 50% local-content threshold when the tender
+    # requires it; N/A otherwise.
+    mii_raw = verify_local_content(company)
+    mii_required = tender_rules.get("make_in_india", False)
+    audit_svc.log_event(db, AuditEventType.tier3_mock_query,
+                        f"Make in India local-content check for {company}",
+                        bidder.id, actor_id, {"response": mii_raw})
+    await _save_check("make_in_india", CheckTier.tier3,
+                      rule_make_in_india(mii_raw, mii_required), mii_raw)
 
     # ── Score + Risk ──────────────────────────────────────────────────────────
     score, risk = compute_score(check_results)

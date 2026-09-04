@@ -43,7 +43,7 @@ async def upload_bidders_csv(
 ):
     """
     Bulk import bidders via CSV.
-    Expected columns: company_name, gstin, pan, cin, udyam_number, epfo_code, esic_code, email, phone, address
+    Expected columns: company_name, gstin, pan, cin, udyam_number, epfo_code, esic_code, nsic_number, email, phone, address
     """
     _get_tender_or_404(tender_id, db)
     content = await file.read()
@@ -56,7 +56,7 @@ async def upload_bidders_csv(
         bidder = Bidder(tender_id=tender_id, **{
             k: row.get(k) for k in [
                 "company_name", "gstin", "pan", "cin",
-                "udyam_number", "epfo_code", "esic_code",
+                "udyam_number", "epfo_code", "esic_code", "nsic_number",
                 "email", "phone", "address"
             ]
         })

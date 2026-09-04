@@ -26,6 +26,7 @@ class Bidder(Base):
     udyam_number = Column(String) # Udyam registration (UDYAM-XX-00-0000000)
     epfo_code = Column(String)
     esic_code = Column(String)
+    nsic_number = Column(String)  # NSIC registration (NSIC/XX/YYYY/NNNNNN)
 
     # Contact
     email = Column(String)

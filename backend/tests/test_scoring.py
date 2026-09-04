@@ -13,6 +13,7 @@ ALL_PASS = [
     _check("mca_status", CheckStatus.pass_),
     _check("epfo_registration", CheckStatus.pass_),
     _check("udyam_msme", CheckStatus.pass_),
+    _check("make_in_india", CheckStatus.pass_),
     _check("bis_license", CheckStatus.pass_),
     _check("startup_india_dpiit", CheckStatus.pass_),
     _check("nsic_registration", CheckStatus.pass_),
@@ -31,8 +32,8 @@ class TestWeights:
     def test_single_fail_reduces_score_proportionally(self):
         results = [_check("gst_status", CheckStatus.fail)] + ALL_PASS[1:]
         score, risk = compute_score(results)
-        # gst = 25 of 100 weight fails → 75%
-        assert score == 75.0
+        # gst = 20 of 100 weight fails → 80%
+        assert score == 80.0
         assert risk == "Medium"
 
 
@@ -77,6 +78,6 @@ class TestExclusions:
         # Simulates: gst fails → officer overrides to pass → score back to full.
         failed = [_check("gst_status", CheckStatus.fail)] + ALL_PASS[1:]
         score_before, _ = compute_score(failed)
-        assert score_before == 75.0
+        assert score_before == 80.0
         score_after, _ = compute_score(ALL_PASS)
         assert score_after == 100.0

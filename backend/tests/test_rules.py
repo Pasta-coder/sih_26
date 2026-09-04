@@ -7,7 +7,8 @@ import pytest
 
 from models.compliance import CheckStatus
 from services.rules_engine import (
-    rule_gst, rule_pan, rule_epfo, rule_mca, rule_blacklist, rule_tier2,
+    rule_gst, rule_pan, rule_epfo, rule_mca,
+    rule_blacklist, rule_tier2, rule_nsic, rule_make_in_india,
 )
 
 BIDDER = "ACME SUPPLIERS PVT LTD"
@@ -114,6 +115,49 @@ class TestRuleMca:
     def test_adapter_error_holds_for_manual_review(self, status):
         raw = {"error": "rate limited", "status": status}
         assert rule_mca(raw)["status"] == CheckStatus.manual_review
+
+
+# ── NSIC ──────────────────────────────────────────────────────────────────────
+class TestRuleNsic:
+    def test_valid_passes(self):
+        raw = {"nsic_number": "NSIC/MH/2021/001234", "status": "Valid"}
+        assert rule_nsic(raw)["status"] == CheckStatus.pass_
+
+    def test_expired_is_fail(self):
+        raw = {"nsic_number": "NSIC/DL/2020/005678", "status": "Expired"}
+        assert rule_nsic(raw)["status"] == CheckStatus.fail
+
+    def test_not_found_is_fail(self):
+        raw = {"nsic_number": "NSIC/XX/0000/000000", "status": "Not Found"}
+        assert rule_nsic(raw)["status"] == CheckStatus.fail
+
+    def test_not_provided_is_not_applicable(self):
+        raw = {"status": "not_provided", "note": "not submitted"}
+        assert rule_nsic(raw)["status"] == CheckStatus.not_applicable
+
+    def test_unknown_status_is_fail(self):
+        assert rule_nsic({})["status"] == CheckStatus.fail
+
+
+# ── Make in India ──────────────────────────────────────────────────────────────
+class TestRuleMakeInIndia:
+    def test_not_required_is_not_applicable(self):
+        raw = {"local_content_percent": 72}
+        assert rule_make_in_india(raw, False)["status"] == CheckStatus.not_applicable
+
+    def test_meets_threshold_passes(self):
+        raw = {"local_content_percent": 72}
+        assert rule_make_in_india(raw, True)["status"] == CheckStatus.pass_
+
+    def test_below_threshold_fails(self):
+        raw = {"local_content_percent": 35}
+        verdict = rule_make_in_india(raw, True)
+        assert verdict["status"] == CheckStatus.fail
+        assert "50%" in verdict["detail"]
+
+    def test_missing_data_fails_when_required(self):
+        raw = {"local_content_percent": None, "status": "not_provided"}
+        assert rule_make_in_india(raw, True)["status"] == CheckStatus.fail
 
 
 # ── Blacklist ─────────────────────────────────────────────────────────────────

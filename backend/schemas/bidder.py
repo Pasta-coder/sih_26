@@ -12,6 +12,7 @@ class BidderCreate(BaseModel):
     udyam_number: str | None = None
     epfo_code: str | None = None
     esic_code: str | None = None
+    nsic_number: str | None = None
     email: str | None = None
     phone: str | None = None
     address: str | None = None
@@ -27,6 +28,7 @@ class BidderOut(BaseModel):
     udyam_number: str | None
     epfo_code: str | None
     esic_code: str | None
+    nsic_number: str | None
     email: str | None
     phone: str | None
     address: str | None

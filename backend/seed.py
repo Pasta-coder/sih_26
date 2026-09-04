@@ -84,6 +84,7 @@ def seed():
                 cin=b.get("cin"),
                 udyam_number=b.get("udyam_number"),
                 epfo_code=b.get("epfo_code"),
+                nsic_number=b.get("nsic_number"),
                 email=b.get("email"),
                 phone=b.get("phone"),
                 address=b.get("address"),

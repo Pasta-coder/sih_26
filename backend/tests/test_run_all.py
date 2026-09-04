@@ -10,10 +10,13 @@ class TestRunAll:
         assert r.json()["processed"] == 1
 
         names = {c["check_name"] for c in _checks(client, headers, seeded["bidder"].id)}
-        # Core checks for the seeded tender (bis/startup toggles off in these
-        # fixtures — M1/M2 extend this set).
-        assert {"gst_status", "pan_validity", "mca_status", "epfo_registration",
-                "udyam_msme", "blacklist"} <= names
+        # M1 convention: every known check is created per bidder (N/A when not
+        # applicable) so the dashboard is a complete checklist.
+        assert {
+            "gst_status", "pan_validity", "mca_status", "epfo_registration",
+            "udyam_msme", "blacklist", "nsic_registration", "make_in_india",
+            "bis_license", "startup_india_dpiit",
+        } <= names
 
     def test_run_blacklisted_bidder_scores_zero(self, seeded, blacklisted_bidder):
         client, headers = _client_and_headers(seeded, "officer")
