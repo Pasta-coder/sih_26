@@ -11,7 +11,10 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (r) => r,
   (err) => {
-    if (err.response?.status === 401) {
+    // F3: a failed login returns 401 too, but redirecting reloads the app and
+    // wipes the inline error message. Only redirect for authenticated calls.
+    const isLoginCall = err.config?.url?.includes('/auth/login')
+    if (err.response?.status === 401 && !isLoginCall) {
       localStorage.removeItem('token')
       window.location.href = '/login'
     }
