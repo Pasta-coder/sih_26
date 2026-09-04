@@ -266,6 +266,17 @@ def officer_override(
     current_user: User = Depends(get_current_user),
 ):
     """Officer override of any check result. Reason is mandatory and logged."""
+    # SECURITY (S2): The blacklist verdict is the system's hard auto-disqualifier
+    # (PRD §6 — score 0/Critical regardless of all other checks). Only an admin
+    # may override it, and always with written justification. Officers keep
+    # override authority for all other checks (PRD §8).
+    if payload.check_name == "blacklist" and current_user.role.value != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Blacklist verdicts are a hard auto-disqualifier and can only be "
+                   "overridden by an Admin with written justification.",
+        )
+
     check = (
         db.query(ComplianceCheck)
         .filter(ComplianceCheck.bidder_id == bidder_id, ComplianceCheck.check_name == payload.check_name)

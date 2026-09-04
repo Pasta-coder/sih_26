@@ -1,7 +1,7 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import Literal
 from models.compliance import CheckStatus, CheckTier
 from datetime import datetime
-from typing import Any
 
 
 class CheckResultOut(BaseModel):
@@ -28,8 +28,8 @@ class Tier2VerifyInput(BaseModel):
 
 class OverrideInput(BaseModel):
     check_name: str
-    new_status: str   # "pass" | "fail"
-    reason: str       # mandatory
+    new_status: Literal["pass", "fail"]
+    reason: str = Field(min_length=20, description="Mandatory written justification (min 20 characters)")
 
 
 class ComplianceRunOut(BaseModel):
