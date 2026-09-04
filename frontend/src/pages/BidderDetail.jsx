@@ -16,6 +16,15 @@ const STATUS_INFO = {
 const TIER_LABEL = { tier1: 'Tier 1 · Auto', tier2: 'Tier 2 · Manual', tier3: 'Tier 3 · Mock' }
 const TIER_CLS = { tier1: 'tier-1', tier2: 'tier-2', tier3: 'tier-3' }
 
+const DOC_TYPES = [
+  ['pan_card', 'PAN Card'],
+  ['gst_certificate', 'GST Certificate'],
+  ['udyam_certificate', 'Udyam Certificate'],
+  ['epfo_certificate', 'EPFO Certificate'],
+  ['itr_v_acknowledgment', 'ITR-V Acknowledgment'],
+  ['oem_authorization_letter', 'OEM Authorization Letter'],
+]
+
 const CHECK_LABELS = {
   gst_status: 'GST Registration', pan_validity: 'PAN Validity', mca_status: 'MCA21 Status',
   epfo_registration: 'EPFO Registration', udyam_msme: 'Udyam / MSME',
@@ -39,11 +48,37 @@ export default function BidderDetail() {
   // F1: per-bidder audit trail (officer-accessible) modal
   const [auditModal, setAuditModal] = useState(null)
   const [auditError, setAuditError] = useState('')
+  // M3: document upload + advisory cross-check
+  const [docReport, setDocReport] = useState(null)
+  const [docType, setDocType] = useState('pan_card')
+  const [docFile, setDocFile] = useState(null)
+  const [uploading, setUploading] = useState(false)
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3500) }
 
   const load = () => api.get(`/compliance/${id}`).then(r => setData(r.data))
-  useEffect(() => { load() }, [id])
+  const loadDocs = () => api.get(`/documents/consistency/${id}`).then(r => setDocReport(r.data)).catch(() => {})
+  useEffect(() => { load(); loadDocs() }, [id])
+
+  const uploadDoc = async (e) => {
+    e.preventDefault()
+    if (!docFile) return
+    const fd = new FormData()
+    fd.append('doc_type', docType)
+    fd.append('file', docFile)
+    setUploading(true)
+    try {
+      await api.post(`/documents/upload/${id}`, fd)
+      setDocFile(null)
+      e.target.reset?.()
+      await loadDocs()
+      showToast('✅ Document uploaded and cross-checked')
+    } catch (err) {
+      showToast(`❌ ${err.response?.data?.detail || 'Upload failed'}`)
+    } finally {
+      setUploading(false)
+    }
+  }
 
   const openAuditTrail = async () => {
     setAuditModal({ loading: true, entries: [] })
@@ -199,6 +234,44 @@ export default function BidderDetail() {
             </div>
           </div>
         )}
+
+        {/* Documents & cross-check (M3) */}
+        <div className="card" style={{ marginBottom: 20 }}>
+          <h3 style={{ fontWeight: 700, marginBottom: 4 }}>📄 Documents & Cross-Check</h3>
+          <p className="text-sm text-muted" style={{ marginBottom: 16 }}>
+            Upload a compliance document; OCR-extracted PAN/GSTIN/Udyam/EPFO codes and names are compared against the bidder record. This panel is advisory only — registry checks remain authoritative.
+          </p>
+          <form onSubmit={uploadDoc} className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+            <select className="select" style={{ maxWidth: 220 }} value={docType} onChange={e => setDocType(e.target.value)}>
+              {DOC_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+            <input type="file" accept="image/*,.pdf" className="input" style={{ flex: 1, minWidth: 180, padding: 7 }} onChange={e => setDocFile(e.target.files?.[0] || null)} />
+            <button className="btn btn-primary btn-sm" type="submit" disabled={uploading || !docFile}>
+              {uploading ? 'Uploading…' : 'Upload & Extract'}
+            </button>
+          </form>
+
+          <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {(!docReport || docReport.documents.length === 0) ? (
+              <p className="text-sm text-muted">No documents uploaded yet.</p>
+            ) : docReport.documents.map(d => (
+              <div key={d.document_id} style={{ background: 'var(--bg-glass)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px' }}>
+                <div className="flex items-center justify-between mb-1">
+                  <span style={{ fontSize: 12.5, fontWeight: 600 }}>{d.filename}</span>
+                  <span className="tier-badge tier-2">{d.doc_type.replace(/_/g, ' ')}</span>
+                </div>
+                <div className="flex" style={{ flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                  {d.checks.length === 0 && <span className="text-sm text-muted">No record fields to cross-check for this document type.</span>}
+                  {d.checks.map((c, i) => (
+                    <span key={i} className={`check-badge ${c.status === 'matched' ? 'check-pass' : c.status === 'mismatch' ? 'check-fail' : 'check-na'}`} title={`record: ${c.record ?? '—'}`}>
+                      {c.status === 'matched' ? '✓' : c.status === 'mismatch' ? '✗' : '·'} {c.field}: {c.extracted ?? 'no OCR data'}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* AI Recommendation */}
         {data.recommendation && (

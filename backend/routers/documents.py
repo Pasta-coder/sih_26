@@ -9,6 +9,7 @@ from auth_utils import get_current_user
 from config import get_settings
 from services.ocr import extract_text
 from services.extraction import extract_fields
+from services.rules_engine import _name_match
 from services import audit_log as audit_svc
 
 settings = get_settings()
@@ -38,6 +39,17 @@ async def upload_document(
     bidder = db.query(Bidder).filter(Bidder.id == bidder_id).first()
     if not bidder:
         raise HTTPException(status_code=404, detail="Bidder not found")
+
+    # M3: MAX_UPLOAD_SIZE_MB was configured but never enforced.
+    max_bytes = settings.max_upload_size_mb * 1024 * 1024
+    file.file.seek(0, os.SEEK_END)
+    size = file.file.tell()
+    file.file.seek(0)
+    if size > max_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File exceeds the {settings.max_upload_size_mb} MB upload limit.",
+        )
 
     # Save file
     upload_dir = os.path.join(settings.upload_dir, str(bidder_id))
@@ -111,3 +123,84 @@ def get_documents(bidder_id: int, db: Session = Depends(get_db), _: User = Depen
         }
         for d in docs
     ]
+
+
+# Which extracted raw-id field maps to which bidder record column for a doc type.
+# (M3) Advisory-only cross-check — registry rules stay authoritative.
+_DOC_RECORD_FIELDS = {
+    "pan_card": [("pan", "pan")],
+    "gst_certificate": [("gstin", "gstin")],
+    "udyam_certificate": [("udyam", "udyam_number")],
+    "epfo_certificate": [("epfo_code", "epfo_code")],
+    "itr_v_acknowledgment": [("pan", "pan")],
+    "oem_authorization_letter": [],
+}
+
+# Extracted-name key per doc type for the fuzzy name cross-check.
+_DOC_NAME_FIELD = {
+    "pan_card": "name",
+    "gst_certificate": "legal_name",
+    "udyam_certificate": "company_name",
+    "epfo_certificate": "establishment_name",
+    "itr_v_acknowledgment": "name",
+}
+
+
+@router.get("/consistency/{bidder_id}")
+def document_consistency(
+    bidder_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """
+    (M3) Advisory cross-check of extracted document fields against the bidder
+    record (PRD §5). Compares each doc's extracted PAN/GSTIN/Udyam/EPFO codes
+    and registered names against the bidder's declared identifiers. This is a
+    decision-support panel only — it never auto-fails a bidder.
+    """
+    bidder = db.query(Bidder).filter(Bidder.id == bidder_id).first()
+    if not bidder:
+        raise HTTPException(status_code=404, detail="Bidder not found")
+
+    docs = db.query(BidderDocument).filter(BidderDocument.bidder_id == bidder_id).all()
+    report = []
+    for d in docs:
+        extracted = d.extracted_fields or {}
+        raw_ids = extracted.get("raw_ids_found", {})
+        matches = []
+        for extract_key, record_attr in _DOC_RECORD_FIELDS.get(d.doc_type, []):
+            record_val = getattr(bidder, record_attr, None)
+            extracted_val = raw_ids.get(extract_key)
+            if not record_val:
+                matches.append({"field": extract_key, "extracted": extracted_val,
+                                "record": None, "status": "no_record"})
+            elif not extracted_val:
+                matches.append({"field": extract_key, "extracted": None,
+                                "record": record_val, "status": "no_extract"})
+            elif str(extracted_val).upper() == str(record_val).upper():
+                matches.append({"field": extract_key, "extracted": extracted_val,
+                                "record": record_val, "status": "matched"})
+            else:
+                matches.append({"field": extract_key, "extracted": extracted_val,
+                                "record": record_val, "status": "mismatch"})
+
+        # Fuzzy name cross-check (advisory)
+        name_key = _DOC_NAME_FIELD.get(d.doc_type)
+        extracted_name = extracted.get(name_key) if name_key else None
+        if extracted_name and bidder.company_name:
+            if _name_match(str(extracted_name), bidder.company_name):
+                matches.append({"field": "name", "extracted": extracted_name,
+                                "record": bidder.company_name, "status": "matched"})
+            else:
+                matches.append({"field": "name", "extracted": extracted_name,
+                                "record": bidder.company_name, "status": "mismatch"})
+
+        report.append({
+            "document_id": d.id,
+            "doc_type": d.doc_type,
+            "filename": d.filename,
+            "extracted": extracted,
+            "checks": matches,
+        })
+
+    return {"bidder_id": bidder.id, "company_name": bidder.company_name, "documents": report}

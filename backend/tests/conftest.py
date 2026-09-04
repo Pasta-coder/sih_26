@@ -17,6 +17,7 @@ if BACKEND_DIR not in sys.path:
 _TMP_DIR = tempfile.mkdtemp(prefix="compliance_test_")
 os.environ["DATABASE_URL"] = f"sqlite:///{os.path.join(_TMP_DIR, 'test.db')}"
 os.environ["APP_ENV"] = "test"
+os.environ["UPLOAD_DIR"] = os.path.join(_TMP_DIR, "uploads")
 
 import pytest
 from fastapi.testclient import TestClient

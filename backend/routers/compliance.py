@@ -110,6 +110,14 @@ async def _run_compliance_for_bidder(bidder: Bidder, tender_rules: dict, db: Ses
 
     # ── Tier 1: EPFO ─────────────────────────────────────────────────────────
     epfo_required = tender_rules.get("epfo_required", True)
+    # M4: MSME exemption — a bidder with a valid Udyam/MSME registration is
+    # exempt from the EPFO requirement when the tender enables msme_exemption.
+    if (
+        epfo_required
+        and tender_rules.get("msme_exemption", False)
+        and bool(bidder.udyam_number)
+    ):
+        epfo_required = False
     epfo_raw = await epfo.verify_epfo(bidder.epfo_code or "")
     audit_svc.log_event(db, AuditEventType.tier1_query, f"EPFO query for {bidder.epfo_code}",
                         bidder.id, actor_id, {"request": bidder.epfo_code, "response": epfo_raw})
