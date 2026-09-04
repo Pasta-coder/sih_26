@@ -14,6 +14,8 @@ class CheckResultOut(BaseModel):
     tier2_portal_url: str | None
     tier2_officer_result: str | None
     tier2_officer_notes: str | None
+    tier2_verified_by: int | None
+    tier2_verified_at: datetime | None
     created_at: datetime
     updated_at: datetime
 

@@ -29,13 +29,46 @@ async def _run_compliance_for_bidder(bidder: Bidder, tender_rules: dict, db: Ses
     """
     company = bidder.company_name
 
-    # ── Delete existing checks for re-run ────────────────────────────────────
-    db.query(ComplianceCheck).filter(ComplianceCheck.bidder_id == bidder.id).delete()
+    # ── Preserve officer-verified Tier-2 results; delete the rest for re-run ──
+    # (E3) An officer's manual verification on the official portal is ground truth
+    # established by a human. Re-running automation must not silently erase it:
+    # those rows are kept and re-included in this run's scoring unchanged, while
+    # all automated rows (tier2_verified_by IS NULL) are refreshed. Overrides live
+    # in the append-only ComplianceOverride table and are never deleted.
+    existing_checks = (
+        db.query(ComplianceCheck)
+        .filter(ComplianceCheck.bidder_id == bidder.id)
+        .all()
+    )
+    preserved = {
+        c.check_name: c for c in existing_checks if c.tier2_verified_by is not None
+    }
+    db.query(ComplianceCheck).filter(
+        ComplianceCheck.bidder_id == bidder.id,
+        ComplianceCheck.tier2_verified_by.is_(None),
+    ).delete(synchronize_session="fetch")  # evict deleted rows from identity map
     db.commit()
 
-    check_results = []
+    check_results = [
+        {"check_name": c.check_name, "status": c.status, "detail": c.detail}
+        for c in preserved.values()
+    ]
+    if preserved:
+        audit_svc.log_event(
+            db,
+            event_type=AuditEventType.compliance_run_started,
+            bidder_id=bidder.id,
+            actor_id=actor_id,
+            description=(
+                f"Compliance run started for {bidder.company_name} — "
+                f"{len(preserved)} officer-verified Tier-2 result(s) preserved from previous run"
+            ),
+        )
 
     async def _save_check(name: str, tier: CheckTier, verdict: dict, raw: dict = None, portal_url: str = None):
+        if name in preserved:
+            # E3: officer-verified Tier-2 verdict survives re-runs — don't overwrite it.
+            return
         status = verdict["status"]
         check = ComplianceCheck(
             bidder_id=bidder.id,
