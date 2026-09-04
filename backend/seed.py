@@ -9,8 +9,11 @@ Seeds the database with:
 import json
 import sys
 import os
+from pathlib import Path
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# O3: anchor to this file so seed.py works from any CWD (repo root, backend/, docker exec)
+BACKEND_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(BACKEND_DIR))
 
 from database import SessionLocal, create_tables
 from models.user import User, UserRole
@@ -70,7 +73,7 @@ def seed():
         print(f"✅ Created tender: {tender.tender_number}")
 
     # ── Bidders ────────────────────────────────────────────────────────────
-    with open("seed_data/bidders.json") as f:
+    with open(BACKEND_DIR / "seed_data" / "bidders.json") as f:
         bidders_data = json.load(f)
 
     existing_count = db.query(Bidder).filter(Bidder.tender_id == tender.id).count()
