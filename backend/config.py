@@ -26,14 +26,17 @@ class Settings(BaseSettings):
     upload_dir: str = "./uploads"
     max_upload_size_mb: int = 20
 
-    # CORS
-    allowed_origins: str = "http://localhost:5173,http://localhost:3000"
+    # CORS — set to your Vercel URL in production
+    # e.g. ALLOWED_ORIGINS=https://sih-26.vercel.app,https://sih26.vercel.app
+    allowed_origins: str = "*"
 
     # Feature flags
     use_real_tier1_apis: bool = False
 
     @property
     def allowed_origins_list(self) -> list[str]:
+        if self.allowed_origins.strip() == "*":
+            return ["*"]
         return [o.strip() for o in self.allowed_origins.split(",")]
 
     class Config:

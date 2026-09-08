@@ -14,8 +14,26 @@ async def lifespan(app: FastAPI):
     # Startup
     os.makedirs(settings.upload_dir, exist_ok=True)
     create_tables()
+    # Auto-seed on first deploy (Railway / fresh environment)
+    _auto_seed_if_empty()
     yield
-    # Shutdown (cleanup if needed)
+    # Shutdown
+
+
+def _auto_seed_if_empty():
+    """Seed demo data if the database has no users yet (first deploy)."""
+    from database import SessionLocal
+    from models.user import User
+    db = SessionLocal()
+    try:
+        if db.query(User).count() == 0:
+            import seed as seed_module
+            seed_module.seed(db)
+    except Exception as e:
+        print(f"[startup] Auto-seed skipped or failed: {e}")
+    finally:
+        db.close()
+
 
 
 app = FastAPI(
