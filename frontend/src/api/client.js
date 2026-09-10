@@ -1,10 +1,8 @@
 import axios from 'axios'
 
-// In local dev: Vite proxies /api → localhost:8000 (no env var needed)
-// In production (Vercel): VITE_API_URL = https://your-app.railway.app
-const baseURL = import.meta.env.VITE_API_URL
-  ? `${import.meta.env.VITE_API_URL}/api`
-  : '/api'
+// The Cloudflare Quick Tunnel URL changes every time the service restarts.
+// Hardcoding the latest tunnel URL here to fix the login issue immediately.
+const baseURL = 'https://priority-outdoors-qld-allowance.trycloudflare.com/api'
 
 const api = axios.create({ baseURL })
 
