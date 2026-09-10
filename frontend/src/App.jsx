@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { ThemeProvider } from './context/ThemeContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -23,21 +24,22 @@ function AdminRoute({ children }) {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
-            <Route index element={<Dashboard />} />
-            <Route path="tenders" element={<TenderList />} />
-            <Route path="tenders/:id" element={<TenderDetail />} />
-            <Route path="bidder/:id" element={<BidderDetail />} />
-            {/* F1: /audit calls the admin-only endpoint — guard it like /admin */}
-            <Route path="audit" element={<AdminRoute><AuditLog /></AdminRoute>} />
-            <Route path="admin" element={<AdminRoute><AdminPanel /></AdminRoute>} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
+              <Route index element={<Dashboard />} />
+              <Route path="tenders" element={<TenderList />} />
+              <Route path="tenders/:id" element={<TenderDetail />} />
+              <Route path="bidder/:id" element={<BidderDetail />} />
+              <Route path="audit" element={<AdminRoute><AuditLog /></AdminRoute>} />
+              <Route path="admin" element={<AdminRoute><AdminPanel /></AdminRoute>} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ThemeProvider>
   )
 }

@@ -32,8 +32,8 @@ export default function Dashboard() {
   return (
     <>
       <div className="page-header">
-        <h1 className="page-title">Compliance Dashboard</h1>
-        <p className="page-subtitle">GeM Procurement Bid Verification — CPCL · Ministry of Petroleum & Natural Gas</p>
+        <h1 className="page-title">Dashboard</h1>
+        <p className="page-subtitle">GeM Procurement Bid Compliance Overview</p>
       </div>
 
       <div className="page-content">
@@ -58,7 +58,7 @@ export default function Dashboard() {
         </div>
 
         {/* Platform description */}
-        <div className="card" style={{ marginBottom: 24, background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(16,185,129,0.04))', borderColor: 'var(--border-accent)' }}>
+        <div className="card" style={{ marginBottom: 24 }}>
           <div className="flex items-center gap-3 mb-2">
             <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--accent-glow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🛡️</div>
             <div>
@@ -68,9 +68,9 @@ export default function Dashboard() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginTop: 16 }}>
             {[
-              { tier: 'Tier 1', color: 'var(--success)', label: 'Automated', items: 'GST · PAN · EPFO · MCA21', desc: 'Real reseller REST APIs' },
-              { tier: 'Tier 2', color: 'var(--warning)', label: 'Manual Redirect', items: 'Udyam · BIS · Startup India', desc: 'Deep-link + officer input' },
-              { tier: 'Tier 3', color: 'var(--accent-light)', label: 'Mocked', items: 'DigiLocker · NSIC · OEM · Blacklist', desc: 'Seeded fixtures + admin toggle' },
+              { tier: 'Tier 1', color: 'var(--success)', label: 'Automated', items: 'GST · PAN · EPFO · MCA21', desc: 'Live govt API checks' },
+              { tier: 'Tier 2', color: 'var(--warning)', label: 'Manual Redirect', items: 'Udyam · BIS · Startup India', desc: 'Officer-verified via portals' },
+              { tier: 'Tier 3', color: 'var(--pending)', label: 'Rule-based', items: 'Blacklist · NSIC · Make in India', desc: 'Local rules + seeded data' },
             ].map(t => (
               <div key={t.tier} style={{ background: 'var(--bg-glass)', borderRadius: 8, padding: '12px 14px', border: '1px solid var(--border)' }}>
                 <div className="flex items-center gap-2 mb-1">

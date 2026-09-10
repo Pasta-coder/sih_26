@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { Shield, Lock, Mail, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { Lock, Mail, Eye, EyeOff, AlertCircle } from 'lucide-react'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -29,11 +29,11 @@ export default function Login() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-header">
-          <div className="logo-ring"><Shield size={28} color="white" /></div>
-          <h1>GeM Compliance Platform</h1>
-          <p>AI-Powered Bid Verification · SIH 2026 · PS-26100</p>
+          <div className="logo-ring">🔍</div>
+          <h1>GeM Nirikshan</h1>
+          <p>Procurement Compliance Platform</p>
           <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-            Ministry of Petroleum & Natural Gas — CPCL
+            Government e-Marketplace · Bid Verification
           </p>
         </div>
 
