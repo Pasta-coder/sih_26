@@ -1,12 +1,14 @@
+import { useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
-import { LayoutDashboard, FileText, ScrollText, Settings, LogOut, Sun, Moon } from 'lucide-react'
+import { LayoutDashboard, FileText, ScrollText, Settings, LogOut, Sun, Moon, Menu, X } from 'lucide-react'
 
 export default function Layout() {
   const { user, logout } = useAuth()
   const { dark, toggle } = useTheme()
   const navigate = useNavigate()
+  const [collapsed, setCollapsed] = useState(false)
 
   const handleLogout = () => { logout(); navigate('/login') }
 
@@ -20,15 +22,20 @@ export default function Layout() {
   const initials = user?.full_name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'U'
 
   return (
-    <div className="app-layout">
+    <div className={`app-layout ${collapsed ? 'collapsed' : ''}`}>
       <aside className="sidebar">
         {/* Brand */}
-        <div className="sidebar-logo">
-          <div className="brand-name">
-            <span className="brand-icon">🔍</span>
-            GeM Nirikshan
+        <div className="sidebar-logo flex items-center justify-between">
+          <div className="brand-info">
+            <div className="brand-name">
+              <span className="brand-icon">🔍</span>
+              <span className="text">GeM Nirikshan</span>
+            </div>
+            <div className="brand-sub">Procurement Compliance Platform</div>
           </div>
-          <div className="brand-sub">Procurement Compliance Platform</div>
+          <button className="sidebar-toggle" onClick={() => setCollapsed(!collapsed)}>
+            {collapsed ? <Menu size={18} /> : <X size={18} />}
+          </button>
         </div>
 
         {/* Nav */}
@@ -41,7 +48,7 @@ export default function Layout() {
               className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
             >
               <Icon size={15} />
-              {label}
+              <span className="nav-label">{label}</span>
             </NavLink>
           ))}
         </nav>
@@ -50,9 +57,9 @@ export default function Layout() {
         <div className="sidebar-footer">
           {/* Dark mode toggle */}
           <button className="theme-toggle" onClick={toggle} id="theme-toggle-btn">
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span className="theme-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               {dark ? <Moon size={13} /> : <Sun size={13} />}
-              {dark ? 'Dark Mode' : 'Light Mode'}
+              <span>{dark ? 'Dark Mode' : 'Light Mode'}</span>
             </span>
             <div className={`toggle-pill ${dark ? 'on' : ''}`}>
               <div className="toggle-knob" />

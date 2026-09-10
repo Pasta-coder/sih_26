@@ -288,27 +288,63 @@ export default function BidderDetail() {
 
       {/* Tier 2 Manual Verify Modal */}
       {tier2Modal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div className="card" style={{ width: '100%', maxWidth: 480 }}>
-            <h3 style={{ fontWeight: 700, marginBottom: 8 }}>Tier 2 Manual Verification</h3>
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}><strong>{CHECK_LABELS[tier2Modal.check_name]}</strong></p>
-            <div style={{ background: 'var(--warning-bg)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 8, padding: '12px 14px', marginBottom: 16 }}>
-              <p style={{ fontSize: 12.5 }}>1. Click the button below to open the official government portal</p>
-              <p style={{ fontSize: 12.5 }}>2. Complete the verification manually</p>
-              <p style={{ fontSize: 12.5 }}>3. Record your result here</p>
-              <p style={{ fontSize: 11.5, marginTop: 6, color: 'var(--text-muted)' }}>
-                ⚠️ &quot;Discrepancy&quot; is recorded as a Fail — clear it only via Override with written justification.
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div className="card" style={{ width: '100%', maxWidth: 500 }}>
+            <div className="flex items-center gap-2 mb-3">
+              <ExternalLink size={16} color="var(--warning)" />
+              <h3 style={{ fontWeight: 700 }}>Tier 2 Manual Verification</h3>
+            </div>
+            <p style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 4 }}>{CHECK_LABELS[tier2Modal.check_name]}</p>
+
+            {/* Portal info */}
+            {tier2Modal.tier2_portal_name && (
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+                🌐 Portal: <strong style={{ color: 'var(--text-secondary)' }}>{tier2Modal.tier2_portal_name}</strong>
+              </p>
+            )}
+
+            {/* Lookup value */}
+            {tier2Modal.tier2_lookup_value && (
+              <div style={{ background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px', marginBottom: 12, fontFamily: 'monospace', fontSize: 13 }}>
+                🔍 Search for: <strong>{tier2Modal.tier2_lookup_value}</strong>
+              </div>
+            )}
+
+            {/* Steps */}
+            <div style={{ background: 'var(--warning-bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px', marginBottom: 14 }}>
+              <p style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--warning)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Steps to verify:</p>
+              {tier2Modal.tier2_steps?.map((step, i) => (
+                <p key={i} style={{ fontSize: 12.5, marginBottom: 4, color: 'var(--text-secondary)' }}>
+                  {i + 1}. {step}
+                </p>
+              )) || (
+                <>
+                  <p style={{ fontSize: 12.5, marginBottom: 4 }}>1. Click the button below to open the official government portal</p>
+                  <p style={{ fontSize: 12.5, marginBottom: 4 }}>2. Complete the verification manually on the portal</p>
+                  <p style={{ fontSize: 12.5, marginBottom: 4 }}>3. Record your result below</p>
+                </>
+              )}
+              <p style={{ fontSize: 11, marginTop: 8, color: 'var(--text-muted)' }}>
+                ⚠️ "Discrepancy" is recorded as Fail — clear only via Override with written justification.
               </p>
             </div>
-            <a href={tier2Modal.tier2_portal_url} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+
+            {/* Direct link button */}
+            <a
+              href={tier2Modal.tier2_portal_url}
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn-primary"
+              style={{ display: 'flex', justifyContent: 'center', marginBottom: 16, textDecoration: 'none' }}
+            >
               <ExternalLink size={14} /> Open Official Portal ↗
             </a>
+
             <div className="form-group">
               <label>Verification Result</label>
               <select className="select" value={tier2Form.result} onChange={e => setTier2Form({ ...tier2Form, result: e.target.value })}>
                 <option value="verified">✅ Verified — Registration confirmed</option>
                 <option value="failed">❌ Failed — Not found / expired</option>
-                {/* E4: discrepancy is an officer-recorded Fail, cleared only via Override */}
                 <option value="discrepancy">⚠️ Discrepancy — recorded as Fail (use Override to clear)</option>
               </select>
             </div>
@@ -323,6 +359,7 @@ export default function BidderDetail() {
           </div>
         </div>
       )}
+
 
       {/* Override Modal */}
       {overrideModal && (
