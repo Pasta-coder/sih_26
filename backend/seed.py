@@ -57,28 +57,117 @@ def seed(db=None):
 
         db.commit()
 
-        # ── Tender ─────────────────────────────────────────────────────────────
+        # ── Tenders ────────────────────────────────────────────────────────────
         admin = db.query(User).filter(User.email == "admin@cpcl.gov.in").first()
-        tender = db.query(Tender).filter(Tender.tender_number == "CPCL/2026/SIH-DEMO/001").first()
-        if not tender:
-            tender = Tender(
-                tender_number="CPCL/2026/SIH-DEMO/001",
-                title="Supply of Petroleum Processing Equipment — SIH Demo Tender",
-                department="CPCL — Ministry of Petroleum & Natural Gas",
-                description="SIH 2026 demonstration tender for AI-powered bid compliance verification. Problem Statement 26100.",
-                created_by=admin.id,
-                rule_toggles={
+
+        TENDERS = [
+            {
+                "tender_number": "GEM/2026/B/5291847",
+                "title": "Supply of High-Speed Diesel (HSD) & Lubricants for Fleet Operations",
+                "department": "Indian Oil Corporation Ltd (IOCL)",
+                "description": (
+                    "Procurement of High-Speed Diesel and industrial lubricants for IOCL fleet "
+                    "and refinery operations across North India. Vendors must hold active GST, "
+                    "valid PAN, EPFO registration and maintain Make in India compliance."
+                ),
+                "rule_toggles": {
                     "epfo_required": True,
                     "msme_exemption": False,
                     "bis_required": False,
                     "make_in_india": True,
                     "startup_india_eligible": False,
                 },
-            )
-            db.add(tender)
-            db.commit()
-            db.refresh(tender)
-            print(f"✅ Created tender: {tender.tender_number}")
+            },
+            {
+                "tender_number": "GEM/2026/B/5318902",
+                "title": "Annual Maintenance Contract — Industrial Safety Equipment & PPE",
+                "department": "Bharat Petroleum Corporation Ltd (BPCL)",
+                "description": (
+                    "AMC for industrial safety equipment including fire suppression systems, gas "
+                    "detectors, breathing apparatus, and personal protective equipment across "
+                    "BPCL refineries. BIS certification mandatory for all PPE items."
+                ),
+                "rule_toggles": {
+                    "epfo_required": True,
+                    "msme_exemption": False,
+                    "bis_required": True,
+                    "make_in_india": True,
+                    "startup_india_eligible": False,
+                },
+            },
+            {
+                "tender_number": "GEM/2026/B/5340217",
+                "title": "IT Infrastructure Modernisation — Servers, Networking & Cybersecurity",
+                "department": "ONGC — Ministry of Petroleum & Natural Gas",
+                "description": (
+                    "Supply and installation of enterprise-grade servers, core network switches, "
+                    "firewalls, and endpoint security solutions for ONGC's digital transformation "
+                    "initiative. Startups registered under DPIIT are eligible to bid."
+                ),
+                "rule_toggles": {
+                    "epfo_required": True,
+                    "msme_exemption": True,
+                    "bis_required": False,
+                    "make_in_india": True,
+                    "startup_india_eligible": True,
+                },
+            },
+            {
+                "tender_number": "GEM/2026/B/5367445",
+                "title": "Construction of EV Charging Infrastructure at Fuel Retail Outlets",
+                "department": "Hindustan Petroleum Corporation Ltd (HPCL)",
+                "description": (
+                    "Design, supply, installation and commissioning of EV fast-charging stations "
+                    "at 200 HPCL retail outlets across Maharashtra and Gujarat. Vendors must have "
+                    "NSIC registration or MSME certificate. Make in India compliance required."
+                ),
+                "rule_toggles": {
+                    "epfo_required": True,
+                    "msme_exemption": True,
+                    "bis_required": False,
+                    "make_in_india": True,
+                    "startup_india_eligible": True,
+                },
+            },
+            {
+                "tender_number": "GEM/2026/B/5389001",
+                "title": "Supply of Petroleum Processing Equipment — Refinery Modernisation",
+                "department": "CPCL — Ministry of Petroleum & Natural Gas",
+                "description": (
+                    "Procurement of heat exchangers, pressure vessels, control valves, and "
+                    "instrumentation equipment for CPCL's Chennai refinery upgrade project. "
+                    "Compliance with EPFO, GST, PAN and Make in India mandate is mandatory."
+                ),
+                "rule_toggles": {
+                    "epfo_required": True,
+                    "msme_exemption": False,
+                    "bis_required": False,
+                    "make_in_india": True,
+                    "startup_india_eligible": False,
+                },
+            },
+        ]
+
+        for t in TENDERS:
+            exists = db.query(Tender).filter(Tender.tender_number == t["tender_number"]).first()
+            if not exists:
+                new_tender = Tender(
+                    tender_number=t["tender_number"],
+                    title=t["title"],
+                    department=t["department"],
+                    description=t["description"],
+                    created_by=admin.id,
+                    rule_toggles=t["rule_toggles"],
+                )
+                db.add(new_tender)
+                db.commit()
+                db.refresh(new_tender)
+                print(f"✅ Created tender: {new_tender.tender_number}")
+
+        # Use first tender for bidder seeding
+        tender = db.query(Tender).filter(
+            Tender.tender_number == "GEM/2026/B/5291847"
+        ).first()
 
         # ── Bidders ────────────────────────────────────────────────────────────
         with open(BACKEND_DIR / "seed_data" / "bidders.json") as f:
