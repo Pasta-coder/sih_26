@@ -30,7 +30,12 @@ export default function AuditLog() {
       .finally(() => setLoading(false))
   }, [])
 
-  const filtered = filter === 'all' ? entries : entries.filter(e => e.event_type === filter)
+  const filtered = filter === 'all' 
+    ? entries 
+    : filter === 'officer_actions'
+      ? entries.filter(e => e.event_type === 'officer_override' || e.event_type === 'tier2_manual_verify')
+      : entries.filter(e => e.event_type === filter)
+      
   const types = [...new Set(entries.map(e => e.event_type))]
 
   return (
@@ -44,6 +49,7 @@ export default function AuditLog() {
         {/* Filter */}
         <div className="flex gap-2 mb-4" style={{ flexWrap: 'wrap' }}>
           <button className={`btn btn-sm ${filter === 'all' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setFilter('all')}>All</button>
+          <button className={`btn btn-sm ${filter === 'officer_actions' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setFilter('officer_actions')}>Officer Actions</button>
           {types.map(t => (
             <button key={t} className={`btn btn-sm ${filter === t ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setFilter(t)}>
               {t.replace(/_/g, ' ')}
@@ -62,21 +68,28 @@ export default function AuditLog() {
           ) : filtered.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 40 }}>
               <ScrollText size={40} style={{ color: 'var(--text-muted)', margin: '0 auto 12px', display: 'block' }} />
-              <p className="text-muted">No audit entries yet. Run a compliance check first.</p>
+              <p className="text-muted">No audit entries yet.</p>
             </div>
           ) : (
             filtered.map(e => (
               <div key={e.id} className="audit-entry">
                 <div className="audit-dot" style={{ background: EVENT_COLORS[e.event_type] || 'var(--accent)' }} />
                 <div style={{ flex: 1 }}>
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1" style={{ flexWrap: 'wrap' }}>
                     <span className="audit-time">{new Date(e.timestamp).toLocaleString('en-IN')}</span>
                     <span style={{ fontSize: 10, background: 'var(--bg-glass)', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 6px', color: 'var(--text-muted)' }}>
                       {e.event_type}
                     </span>
+                    {e.actor_name && (
+                      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', background: 'var(--accent-subtle)', padding: '1px 6px', borderRadius: 4 }}>
+                        👤 {e.actor_name}
+                      </span>
+                    )}
                     {e.bidder_id && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>bidder #{e.bidder_id}</span>}
                   </div>
-                  <div className="audit-desc">{e.description}</div>
+                  <div className="audit-desc" style={{ marginTop: 4 }}>
+                    {e.description}
+                  </div>
                 </div>
               </div>
             ))

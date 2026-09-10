@@ -66,15 +66,26 @@ def export_bidder_pdf(bidder_id: int, db: Session = Depends(get_db), _: User = D
 @router.get("/all")
 def get_all_audit(db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     """Full system audit log — admin only."""
-    entries = get_full_audit_trail(db)
+    from models.audit import AuditLog
+    
+    entries = (
+        db.query(AuditLog, User.full_name, User.email)
+        .outerjoin(User, AuditLog.actor_id == User.id)
+        .order_by(AuditLog.timestamp.desc())
+        .limit(500)
+        .all()
+    )
+    
     return [
         {
-            "id": e.id,
-            "event_type": e.event_type.value,
-            "bidder_id": e.bidder_id,
-            "actor_id": e.actor_id,
-            "description": e.description,
-            "timestamp": e.timestamp.isoformat(),
+            "id": log.id,
+            "event_type": log.event_type.value,
+            "bidder_id": log.bidder_id,
+            "actor_id": log.actor_id,
+            "actor_name": name,
+            "actor_email": email,
+            "description": log.description,
+            "timestamp": log.timestamp.isoformat(),
         }
-        for e in entries
+        for log, name, email in entries
     ]
