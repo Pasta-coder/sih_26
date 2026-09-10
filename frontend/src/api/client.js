@@ -2,7 +2,7 @@ import axios from 'axios'
 
 // The Cloudflare Quick Tunnel URL changes every time the service restarts.
 // Hardcoding the latest tunnel URL here to fix the login issue immediately.
-const baseURL = 'https://priority-outdoors-qld-allowance.trycloudflare.com/api'
+const baseURL = 'https://moreover-anybody-ware-thru.trycloudflare.com/api'
 
 const api = axios.create({ baseURL })
 
